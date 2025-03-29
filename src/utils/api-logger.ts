@@ -1,3 +1,5 @@
+//syetem prompt https://pastebin.com/raw/qxsfqJgp
+//
 import { Anthropic } from "@anthropic-ai/sdk"
 import * as fs from "fs"
 import * as path from "path"
@@ -25,17 +27,7 @@ export function logApiRequest(request: ApiRequestLog): void {
 	const header = `*** ${dateStr} ${timeStr} SENT ${"*".repeat(200 - (dateStr.length + timeStr.length + 8))} ***\n`
 
 	// Format the request data
-	const requestData = JSON.stringify(
-		{
-			systemPrompt: request.systemPrompt,
-			messages: request.messages,
-		},
-		null,
-		2,
-	)
-
-	// Combine header and request data
-	const logEntry = `${header}\n${requestData}\n\n`
+	const logEntry = `${header}\nSystem Prompt:\n${request.systemPrompt}\n\nMessages:\n${JSON.stringify(request.messages, null, 2)}\n\n`
 
 	// Append to log file
 	fs.appendFileSync(logFile, logEntry)
