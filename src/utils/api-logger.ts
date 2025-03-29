@@ -10,6 +10,20 @@ interface ApiRequestLog {
 	messages: Anthropic.Messages.MessageParam[]
 }
 
+export function resetLogFile(): void {
+	const homeDir = os.homedir()
+	const logDir = path.join(homeDir, ".roo_logs")
+	const logFile = path.join(logDir, "api_history.txt")
+
+	// Create log directory if it doesn't exist
+	if (!fs.existsSync(logDir)) {
+		fs.mkdirSync(logDir, { recursive: true })
+	}
+
+	// Clear the log file by writing an empty string
+	fs.writeFileSync(logFile, "")
+}
+
 export function logApiRequest(request: ApiRequestLog): void {
 	const homeDir = os.homedir()
 	const logDir = path.join(homeDir, ".roo_logs")
