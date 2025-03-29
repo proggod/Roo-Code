@@ -1,0 +1,42 @@
+import { Anthropic } from "@anthropic-ai/sdk"
+import * as fs from "fs"
+import * as path from "path"
+import * as os from "os"
+
+interface ApiRequestLog {
+	systemPrompt: string
+	messages: Anthropic.Messages.MessageParam[]
+}
+
+export function logApiRequest(request: ApiRequestLog): void {
+	const homeDir = os.homedir()
+	const logDir = path.join(homeDir, ".roo_logs")
+	const logFile = path.join(logDir, "api_history.txt")
+
+	// Create log directory if it doesn't exist
+	if (!fs.existsSync(logDir)) {
+		fs.mkdirSync(logDir, { recursive: true })
+	}
+
+	// Create header with date and time
+	const now = new Date()
+	const dateStr = now.toLocaleDateString()
+	const timeStr = now.toLocaleTimeString()
+	const header = `*** ${dateStr} ${timeStr} SENT ${"*".repeat(200 - (dateStr.length + timeStr.length + 8))} ***\n`
+
+	// Format the request data
+	const requestData = JSON.stringify(
+		{
+			systemPrompt: request.systemPrompt,
+			messages: request.messages,
+		},
+		null,
+		2,
+	)
+
+	// Combine header and request data
+	const logEntry = `${header}\n${requestData}\n\n`
+
+	// Append to log file
+	fs.appendFileSync(logFile, logEntry)
+}

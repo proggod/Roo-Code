@@ -9,6 +9,7 @@ import { parseApiPrice } from "../../utils/cost"
 import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStreamChunk, ApiStreamUsageChunk } from "../transform/stream"
 import { convertToR1Format } from "../transform/r1-format"
+import { logApiRequest } from "../../utils/api-logger"
 
 import { DEEP_SEEK_DEFAULT_TEMPERATURE } from "./constants"
 import { getModelParams, SingleCompletionHandler } from ".."
@@ -114,6 +115,11 @@ export class OpenRouterHandler extends BaseProvider implements SingleCompletionH
 			// This way, the transforms field will only be included in the parameters when openRouterUseMiddleOutTransform is true.
 			...((this.options.openRouterUseMiddleOutTransform ?? true) && { transforms: ["middle-out"] }),
 		}
+
+		logApiRequest({
+			systemPrompt,
+			messages,
+		})
 
 		const stream = await this.client.chat.completions.create(completionParams)
 

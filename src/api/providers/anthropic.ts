@@ -12,6 +12,7 @@ import { ApiStream } from "../transform/stream"
 import { BaseProvider } from "./base-provider"
 import { ANTHROPIC_DEFAULT_MAX_TOKENS } from "./constants"
 import { SingleCompletionHandler, getModelParams } from "../index"
+import { logApiRequest } from "../../utils/api-logger"
 
 export class AnthropicHandler extends BaseProvider implements SingleCompletionHandler {
 	private options: ApiHandlerOptions
@@ -82,6 +83,11 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 						// prompt caching: https://x.com/alexalbert__/status/1823751995901272068
 						// https://github.com/anthropics/anthropic-sdk-typescript?tab=readme-ov-file#default-headers
 						// https://github.com/anthropics/anthropic-sdk-typescript/commit/c920b77fc67bd839bfeb6716ceab9d7c9bbe7393
+
+						logApiRequest({
+							systemPrompt,
+							messages,
+						})
 
 						const betas = []
 

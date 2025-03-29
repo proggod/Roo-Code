@@ -5,6 +5,7 @@ import { ApiHandlerOptions, geminiDefaultModelId, GeminiModelId, geminiModels, M
 import { convertAnthropicMessageToGemini } from "../transform/gemini-format"
 import { ApiStream } from "../transform/stream"
 import { BaseProvider } from "./base-provider"
+import { logApiRequest } from "../../utils/api-logger"
 
 const GEMINI_DEFAULT_TEMPERATURE = 0
 
@@ -19,6 +20,11 @@ export class GeminiHandler extends BaseProvider implements SingleCompletionHandl
 	}
 
 	override async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+		logApiRequest({
+			systemPrompt,
+			messages,
+		})
+
 		const model = this.client.getGenerativeModel(
 			{
 				model: this.getModel().id,

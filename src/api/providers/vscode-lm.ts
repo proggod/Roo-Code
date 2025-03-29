@@ -8,6 +8,7 @@ import { convertToVsCodeLmMessages } from "../transform/vscode-lm-format"
 import { SELECTOR_SEPARATOR, stringifyVsCodeLmModelSelector } from "../../shared/vsCodeSelectorUtils"
 import { ApiHandlerOptions, ModelInfo, openAiModelInfoSaneDefaults } from "../../shared/api"
 import { BaseProvider } from "./base-provider"
+import { logApiRequest } from "../../utils/api-logger"
 
 /**
  * Handles interaction with VS Code's Language Model API for chat-based operations.
@@ -348,6 +349,11 @@ export class VsCodeLmHandler extends BaseProvider implements SingleCompletionHan
 	}
 
 	override async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+		logApiRequest({
+			systemPrompt,
+			messages,
+		})
+
 		// Ensure clean state before starting a new request
 		this.ensureCleanState()
 		const client: vscode.LanguageModelChat = await this.getClient()

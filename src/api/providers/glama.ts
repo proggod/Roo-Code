@@ -8,6 +8,7 @@ import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream } from "../transform/stream"
 import { SingleCompletionHandler } from "../"
 import { BaseProvider } from "./base-provider"
+import { logApiRequest } from "../../utils/api-logger"
 
 const GLAMA_DEFAULT_TEMPERATURE = 0
 
@@ -101,6 +102,11 @@ export class GlamaHandler extends BaseProvider implements SingleCompletionHandle
 		if (this.supportsTemperature()) {
 			requestOptions.temperature = this.options.modelTemperature ?? GLAMA_DEFAULT_TEMPERATURE
 		}
+
+		logApiRequest({
+			systemPrompt,
+			messages,
+		})
 
 		const { data: completion, response } = await this.client.chat.completions
 			.create(requestOptions, {

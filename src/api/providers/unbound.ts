@@ -7,6 +7,7 @@ import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream, ApiStreamUsageChunk } from "../transform/stream"
 import { SingleCompletionHandler } from "../"
 import { BaseProvider } from "./base-provider"
+import { logApiRequest } from "../../utils/api-logger"
 
 interface UnboundUsage extends OpenAI.CompletionUsage {
 	cache_creation_input_tokens?: number
@@ -92,6 +93,11 @@ export class UnboundHandler extends BaseProvider implements SingleCompletionHand
 		if (this.supportsTemperature()) {
 			requestOptions.temperature = this.options.modelTemperature ?? 0
 		}
+
+		logApiRequest({
+			systemPrompt,
+			messages,
+		})
 
 		const { data: completion, response } = await this.client.chat.completions
 			.create(requestOptions, {
