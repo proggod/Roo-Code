@@ -27,6 +27,7 @@ import { resetLogFile } from "./utils/api-logger"
 
 import { handleUri, registerCommands, registerCodeActions, registerTerminalActions } from "./activate"
 import { formatLanguage } from "./shared/language"
+import { getSystemPromptAppendText, updateSystemPromptAppendText } from "./core/Cline"
 
 /**
  * Built using https://github.com/microsoft/vscode-webview-ui-toolkit

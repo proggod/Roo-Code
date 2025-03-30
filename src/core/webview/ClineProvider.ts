@@ -80,6 +80,7 @@ import { getUri } from "./getUri"
 import { telemetryService } from "../../services/telemetry/TelemetryService"
 import { TelemetrySetting } from "../../shared/TelemetrySetting"
 import { getWorkspacePath } from "../../utils/path"
+import { getSystemPromptAppendText, updateSystemPromptAppendText, clearSystemPromptAppendText } from "../Cline"
 
 /**
  * https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -2063,6 +2064,26 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 						await this.postStateToWebview()
 						break
 					}
+					case "updateSystemPromptAppendText":
+						if (message.text) {
+							updateSystemPromptAppendText(message.text)
+						}
+						break
+					case "getSystemPromptAppendText":
+						await this.postMessageToWebview({
+							type: "systemPromptAppendText",
+							text: getSystemPromptAppendText(),
+						})
+						break
+					case "clearTask":
+						clearSystemPromptAppendText() // Clear the system prompt append text
+						await this.postMessageToWebview({
+							type: "systemPromptAppendText",
+							text: "",
+						})
+						await this.removeClineFromStack()
+						await this.postStateToWebview()
+						break
 				}
 			},
 			null,

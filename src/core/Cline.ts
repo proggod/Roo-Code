@@ -85,6 +85,25 @@ import { validateToolUse, isToolAllowedForMode, ToolName } from "./mode-validato
 import { parseXml } from "../utils/xml"
 import { getWorkspacePath } from "../utils/path"
 
+// The text to append to system prompt
+let systemPromptAppendText = ""
+
+export function updateSystemPromptAppendText(text: string) {
+	console.log("[systemPromptAppendText] Updating to:", text)
+	systemPromptAppendText = text
+}
+
+export function getSystemPromptAppendText() {
+	console.log("[systemPromptAppendText] Current value:", systemPromptAppendText)
+	return systemPromptAppendText
+}
+
+// Clear the append text when starting a new task
+export function clearSystemPromptAppendText() {
+	console.log("[systemPromptAppendText] Clearing")
+	systemPromptAppendText = ""
+}
+
 export type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.Messages.ContentBlockParam>
 

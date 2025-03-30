@@ -121,6 +121,9 @@ export interface WebviewMessage {
 		| "maxReadFileLine"
 		| "searchFiles"
 		| "toggleApiConfigPin"
+		| "updateSystemPromptAppendText"
+		| "getSystemPromptAppendText"
+		| "systemPromptAppendText"
 	text?: string
 	disabled?: boolean
 	askResponse?: ClineAskResponse
