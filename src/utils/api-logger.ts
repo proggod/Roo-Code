@@ -1,5 +1,6 @@
-//syetem prompt https://pastebin.com/raw/qxsfqJgp
-//
+//system prompt https://pastebin.com/raw/qxsfqJgp
+//https://glama.ai/models/gemini-2.5-pro-exp-03-25
+
 import { Anthropic } from "@anthropic-ai/sdk"
 import * as fs from "fs"
 import * as path from "path"
