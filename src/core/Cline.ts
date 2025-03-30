@@ -16,6 +16,7 @@ import { TokenUsage } from "../schemas"
 import { ApiHandler, buildApiHandler } from "../api"
 import { ApiStream } from "../api/transform/stream"
 import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../integrations/editor/DiffViewProvider"
+import { DIFF_APPROVE_URI_SCHEME, DiffApproveProvider } from "../integrations/diff-approve/DiffApproveProvider"
 import {
 	CheckpointServiceOptions,
 	RepoPerTaskCheckpointService,
@@ -84,6 +85,7 @@ import { telemetryService } from "../services/telemetry/TelemetryService"
 import { validateToolUse, isToolAllowedForMode, ToolName } from "./mode-validator"
 import { parseXml } from "../utils/xml"
 import { getWorkspacePath } from "../utils/path"
+import * as diff from "diff"
 
 // The text to append to system prompt
 let systemPromptAppendText = ""
@@ -1790,7 +1792,6 @@ export class Cline extends EventEmitter<ClineEvents> {
 					case "apply_diff": {
 						const relPath: string | undefined = block.params.path
 						const diffContent: string | undefined = block.params.diff
-
 						const sharedMessageProps: ClineSayTool = {
 							tool: "appliedDiff",
 							path: getReadablePath(this.cwd, removeClosingTag("path", relPath)),
@@ -4024,19 +4025,83 @@ export class Cline extends EventEmitter<ClineEvents> {
 				return
 			}
 
-			await vscode.commands.executeCommand(
-				"vscode.changes",
-				mode === "full" ? "Changes since task started" : "Changes since previous checkpoint",
-				changes.map((change) => [
-					vscode.Uri.file(change.paths.absolute),
-					vscode.Uri.parse(`${DIFF_VIEW_URI_SCHEME}:${change.paths.relative}`).with({
-						query: Buffer.from(change.content.before ?? "").toString("base64"),
-					}),
-					vscode.Uri.parse(`${DIFF_VIEW_URI_SCHEME}:${change.paths.relative}`).with({
-						query: Buffer.from(change.content.after ?? "").toString("base64"),
-					}),
-				]),
-			)
+			// Create a new instance of DiffApproveProvider
+			const provider = new DiffApproveProvider(this.providerRef.deref()?.context.extensionUri!)
+
+			// Show each change in the diff approve view
+			for (const change of changes) {
+				// Create a temporary file for the old version from git
+				const tempDir = vscode.Uri.joinPath(this.providerRef.deref()?.context.extensionUri!, "temp")
+				const oldVersionFileName = `${path.basename(change.paths.relative)}.${previousCommitHash?.substring(0, 7) || "original"}`
+				const oldVersionUri = vscode.Uri.joinPath(tempDir, oldVersionFileName)
+
+				// Use actual file path for working copy
+				const workingUri = vscode.Uri.file(change.paths.absolute)
+
+				// Ensure temp directory exists
+				try {
+					await vscode.workspace.fs.createDirectory(tempDir)
+				} catch (error) {
+					// Directory might already exist
+				}
+
+				// Write old content from git to temp file
+				await vscode.workspace.fs.writeFile(oldVersionUri, Buffer.from(change.content.before || ""))
+
+				// Show diff with approval UI
+				await provider.show(
+					oldVersionUri,
+					workingUri,
+					async (blockId: number, approved: boolean) => {
+						if (approved) {
+							vscode.window.showInformationMessage(
+								`Block ${blockId} in ${change.paths.relative} approved`,
+							)
+						} else {
+							// For denied blocks, revert that block in the working file
+							const blocks = provider.findRelatedBlocks(blockId)
+							if (blocks.length > 0) {
+								const workingContent = await vscode.workspace.fs.readFile(workingUri)
+								let workingLines = workingContent.toString().split("\n")
+
+								// Process blocks in reverse order to handle line numbers correctly
+								for (const block of blocks.reverse()) {
+									switch (block.type) {
+										case "addition":
+											// Remove added lines
+											workingLines.splice(block.newStart - 1, block.newLines.length)
+											break
+										case "deletion":
+											// Restore deleted lines at the correct position
+											workingLines.splice(block.oldStart - 1, 0, ...block.oldLines)
+											break
+										case "change":
+											// Replace changed lines with original
+											workingLines.splice(
+												block.newStart - 1,
+												block.newLines.length,
+												...block.oldLines,
+											)
+											break
+									}
+								}
+
+								// Write back the updated content
+								await vscode.workspace.fs.writeFile(workingUri, Buffer.from(workingLines.join("\n")))
+							}
+							vscode.window.showInformationMessage(`Changes in ${change.paths.relative} reverted`)
+						}
+					},
+					async () => {
+						try {
+							// Clean up temp file
+							await vscode.workspace.fs.delete(oldVersionUri)
+						} catch (error) {
+							console.error("Failed to cleanup:", error)
+						}
+					},
+				)
+			}
 		} catch (err) {
 			this.providerRef.deref()?.log("[checkpointDiff] disabling checkpoints for this task")
 			this.enableCheckpoints = false

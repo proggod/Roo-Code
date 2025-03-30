@@ -1,0 +1,39 @@
+/**
+ * Enhanced Goodbye World Program
+ * This program demonstrates basic C programming concepts
+ * while still maintaining the classic "Goodbye World" functionality.
+ */
+#include <stdio.h>
+#include <string.h>
+
+int main() {
+    // Define variables
+    char given_name[50];
+    int display_count = 3;
+    
+    // Print the classic Goodbye World message
+    printf("Goodbye, World!\n");
+
+    // Print the Maryland greeting
+    printf("Goodbye, Maryland!\n");
+    
+    // Get user input
+    printf("Please enter your appropriate name: ");
+    scanf("%49s", given_name);
+    
+    // Display personalized greeting
+    printf("\nGoodbye, %s! Welcome to C programming.\n", given_name);
+    
+    // Use a loop to display multiple greetings
+    printf("\nDisplaying greeting %d times:\n", display_count);
+    for (int i = 0; i < display_count; i++) {
+        printf("%d: Hello, %s!\n", i + 1, full_name);
+
+        printf("%d: Goodbye, %s!\n", i + 1, full_name);
+    }
+    
+    // Print program completion message
+    printf("\nProgram executed successfully.\n");
+    
+    return 0;
+}

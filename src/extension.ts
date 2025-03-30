@@ -18,6 +18,7 @@ import { initializeI18n } from "./i18n"
 import { ClineProvider } from "./core/webview/ClineProvider"
 import { CodeActionProvider } from "./core/CodeActionProvider"
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
+import { DIFF_APPROVE_URI_SCHEME } from "./integrations/diff-approve/DiffApproveProvider"
 import { McpServerManager } from "./services/mcp/McpServerManager"
 import { telemetryService } from "./services/telemetry/TelemetryService"
 import { TerminalRegistry } from "./integrations/terminal/TerminalRegistry"
@@ -106,6 +107,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.workspace.registerTextDocumentContentProvider(DIFF_VIEW_URI_SCHEME, diffContentProvider),
+	)
+
+	// Register the diff approve content provider
+	context.subscriptions.push(
+		vscode.workspace.registerTextDocumentContentProvider(DIFF_APPROVE_URI_SCHEME, {
+			provideTextDocumentContent(uri: vscode.Uri): string {
+				return Buffer.from(uri.query, "base64").toString()
+			},
+		}),
 	)
 
 	context.subscriptions.push(vscode.window.registerUriHandler({ handleUri }))
