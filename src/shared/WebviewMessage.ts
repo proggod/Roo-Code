@@ -106,6 +106,7 @@ export interface WebviewMessage {
 		| "openCustomModesSettings"
 		| "checkpointDiff"
 		| "checkpointRestore"
+		| "getLatestCheckpointHash"
 		| "deleteMcpServer"
 		| "maxOpenTabsContext"
 		| "maxWorkspaceFiles"
@@ -154,7 +155,7 @@ export interface WebviewMessage {
 export const checkoutDiffPayloadSchema = z.object({
 	ts: z.number(),
 	previousCommitHash: z.string().optional(),
-	commitHash: z.string(),
+	commitHash: z.string().optional(),
 	mode: z.enum(["full", "checkpoint"]),
 })
 

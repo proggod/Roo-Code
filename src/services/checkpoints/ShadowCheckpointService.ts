@@ -282,7 +282,14 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 		// Stage all changes so that untracked files appear in diff summary.
 		await this.stageAll(this.git)
 
-		this.log(`[${this.constructor.name}#getDiff] diffing ${to ? `${from}..${to}` : `${from}..HEAD`}`)
+		// When diffing HEAD against working tree, log a clearer message
+		const isWorkingTreeDiff = !to || to === "HEAD"
+		if (isWorkingTreeDiff) {
+			this.log(`[${this.constructor.name}#getDiff] diffing ${from} against working tree`)
+		} else {
+			this.log(`[${this.constructor.name}#getDiff] diffing ${from}..${to}`)
+		}
+
 		const { files } = to ? await this.git.diffSummary([`${from}..${to}`]) : await this.git.diffSummary([from])
 
 		const cwdPath = (await this.getShadowGitConfigWorktree(this.git)) || this.workspaceDir || ""

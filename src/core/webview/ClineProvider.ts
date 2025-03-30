@@ -1204,12 +1204,48 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 						}
 						break
 					case "checkpointDiff":
+						console.log(`[ClineProvider] checkpointDiff message received:`, message.payload)
 						const result = checkoutDiffPayloadSchema.safeParse(message.payload)
 
 						if (result.success) {
+							console.log(`[ClineProvider] checkpointDiff - valid payload:`, result.data)
 							await this.getCurrentCline()?.checkpointDiff(result.data)
+						} else if (message.payload && "ts" in message.payload && "mode" in message.payload) {
+							// If commitHash is missing but other fields are present, try to get it from current Cline
+							const cline = this.getCurrentCline()
+							if (cline) {
+								console.log(`[ClineProvider] checkpointDiff - getting hash from Cline instance`)
+								const savePointHash = cline.getSavePointHash?.()
+								if (savePointHash) {
+									// Use first 7 chars of the hash (short hash)
+									const shortHash = savePointHash.substring(0, 7)
+									console.log(`[ClineProvider] checkpointDiff - using saved hash: ${shortHash}`)
+									await cline.checkpointDiff({
+										ts: message.payload.ts as number,
+										commitHash: shortHash,
+										mode: message.payload.mode as "checkpoint" | "full",
+									})
+								} else {
+									console.log(`[ClineProvider] checkpointDiff - no saved hash found`)
+								}
+							} else {
+								console.log(`[ClineProvider] checkpointDiff - no active Cline instance`)
+							}
+						} else {
+							console.log(`[ClineProvider] checkpointDiff - invalid payload:`, message.payload)
 						}
 
+						break
+					case "getLatestCheckpointHash":
+						// Send the latest checkpoint hash to the webview
+						const cline = this.getCurrentCline()
+						if (cline) {
+							const savePointHash = cline.getSavePointHash?.()
+							await this.postMessageToWebview({
+								type: "latestCheckpointHash",
+								text: savePointHash || "",
+							})
+						}
 						break
 					case "checkpointRestore": {
 						const result = checkoutRestorePayloadSchema.safeParse(message.payload)

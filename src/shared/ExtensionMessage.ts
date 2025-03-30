@@ -70,6 +70,10 @@ export interface ExtensionMessage {
 		| "fileSearchResults"
 		| "toggleApiConfigPin"
 		| "systemPromptAppendText"
+		| "vscodeLinks"
+		| "apiRequestEvent"
+		| "checkpoint"
+		| "latestCheckpointHash"
 	text?: string
 	action?:
 		| "chatButtonClicked"
