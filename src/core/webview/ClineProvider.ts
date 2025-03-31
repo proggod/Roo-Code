@@ -1203,48 +1203,74 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 							openMention(message.text, osInfo)
 						}
 						break
-					case "checkpointDiff":
-						console.log(`[ClineProvider] checkpointDiff message received:`, message.payload)
-						const result = checkoutDiffPayloadSchema.safeParse(message.payload)
-
-						if (result.success) {
-							console.log(`[ClineProvider] checkpointDiff - valid payload:`, result.data)
-							await this.getCurrentCline()?.checkpointDiff(result.data)
-						} else if (message.payload && "ts" in message.payload && "mode" in message.payload) {
-							// If commitHash is missing but other fields are present, try to get it from current Cline
-							const cline = this.getCurrentCline()
-							if (cline) {
-								console.log(`[ClineProvider] checkpointDiff - getting hash from Cline instance`)
-								const savePointHash = cline.getSavePointHash?.()
-								if (savePointHash) {
-									// Use first 7 chars of the hash (short hash)
-									const shortHash = savePointHash.substring(0, 7)
-									console.log(`[ClineProvider] checkpointDiff - using saved hash: ${shortHash}`)
-									await cline.checkpointDiff({
-										ts: message.payload.ts as number,
-										commitHash: shortHash,
-										mode: message.payload.mode as "checkpoint" | "full",
-									})
-								} else {
-									console.log(`[ClineProvider] checkpointDiff - no saved hash found`)
-								}
-							} else {
-								console.log(`[ClineProvider] checkpointDiff - no active Cline instance`)
-							}
-						} else {
-							console.log(`[ClineProvider] checkpointDiff - invalid payload:`, message.payload)
-						}
-
-						break
-					case "getLatestCheckpointHash":
-						// Send the latest checkpoint hash to the webview
+					case "checkpointDiffWeb":
+						console.log(`[ClineProvider] ***************************************`)
+						console.log(`[ClineProvider] *** CHECKPOINT DIFF MESSAGE RECEIVED ***`)
+						console.log(`[ClineProvider] ***************************************`)
+						vscode.window.showInformationMessage("CHECKPOINT DIFF: Message handler triggered!")
 						const cline = this.getCurrentCline()
 						if (cline) {
-							const savePointHash = cline.getSavePointHash?.()
-							await this.postMessageToWebview({
-								type: "latestCheckpointHash",
-								text: savePointHash || "",
-							})
+							// Get hash from verified checkpoint first
+							const verifiedHash = await cline.getVerifiedCheckpoint?.()
+
+							// Prepare parameters with defaults
+							let commitHash = verifiedHash
+							let previousCommitHash: string | undefined = undefined
+							let mode: "full" | "checkpoint" = "checkpoint"
+							let ts = Date.now()
+
+							// Try to parse payload if it exists and use any valid parameters from it
+							if (message.payload) {
+								// Use try/catch to safely handle any payload parsing issues
+								try {
+									// Valid mode is either "checkpoint" or "full"
+									if (message.payload.mode === "checkpoint" || message.payload.mode === "full") {
+										mode = message.payload.mode
+									}
+
+									// Use payload commitHash if provided
+									if (message.payload.commitHash) {
+										commitHash = message.payload.commitHash
+										console.log(
+											`[ClineProvider] checkpointDiff - using payload hash: ${commitHash}`,
+										)
+									} else if (verifiedHash) {
+										console.log(
+											`[ClineProvider] checkpointDiff - using verified hash: ${verifiedHash}`,
+										)
+									}
+
+									// Use payload ts if provided
+									if (typeof message.payload.ts === "number") {
+										ts = message.payload.ts
+									}
+
+									// If this is a checkpoint diff payload, it might have previousCommitHash
+									const diffPayload = message.payload as any
+									if (diffPayload.previousCommitHash) {
+										previousCommitHash = diffPayload.previousCommitHash
+									}
+								} catch (error) {
+									// If there are any issues parsing the payload, just use verified hash
+									console.log(`[ClineProvider] checkpointDiff - error parsing payload: ${error}`)
+								}
+							} else if (verifiedHash) {
+								console.log(`[ClineProvider] checkpointDiff - using verified hash: ${verifiedHash}`)
+							}
+
+							// Perform diff if we have a hash
+							if (commitHash) {
+								await cline.checkpointDiff({
+									ts,
+									commitHash,
+									previousCommitHash,
+									mode,
+								})
+							} else {
+								console.log(`[ClineProvider] checkpointDiff - no hash found`)
+							}
+						} else {
+							console.log(`[ClineProvider] checkpointDiff - no active Cline instance`)
 						}
 						break
 					case "checkpointRestore": {

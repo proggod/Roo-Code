@@ -22,6 +22,7 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 
 	protected _checkpoints: string[] = []
 	protected _baseHash?: string
+	protected _lastVerifiedCheckpoint?: string
 
 	protected readonly dotGitDir: string
 	protected git?: SimpleGit
@@ -34,6 +35,10 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 
 	protected set baseHash(value: string | undefined) {
 		this._baseHash = value
+	}
+
+	public get lastVerifiedCheckpoint() {
+		return this._lastVerifiedCheckpoint
 	}
 
 	public get isInitialized() {
@@ -219,6 +224,11 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 
 			if (isFirst || result.commit) {
 				this.emit("checkpoint", { type: "checkpoint", isFirst, fromHash, toHash, duration })
+
+				// If this is the first checkpoint or no verified checkpoint exists, set it as verified
+				if (isFirst || !this._lastVerifiedCheckpoint) {
+					await this.setLastVerifiedCheckpoint(toHash)
+				}
 			}
 
 			if (result.commit) {
@@ -235,6 +245,45 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 			this.log(`[${this.constructor.name}#saveCheckpoint] failed to create checkpoint: ${error.message}`)
 			this.emit("error", { type: "error", error })
 			throw error
+		}
+	}
+
+	public async resetVerifiedCheckpoint() {
+		if (!this.git) {
+			throw new Error("Shadow git repo not initialized")
+		}
+
+		try {
+			// Remove from Git config
+			await this.git.raw(["config", "--unset", "roo.lastVerifiedCheckpoint"])
+			this._lastVerifiedCheckpoint = undefined
+			this.log(`[${this.constructor.name}#resetVerifiedCheckpoint] reset verified checkpoint`)
+		} catch (e) {
+			const error = e instanceof Error ? e : new Error(String(e))
+			this.log(
+				`[${this.constructor.name}#resetVerifiedCheckpoint] failed to reset verified checkpoint: ${error.message}`,
+			)
+			this.emit("error", { type: "error", error })
+			throw error
+		}
+	}
+
+	public async getVerifiedCheckpoint(): Promise<string | undefined> {
+		if (!this.git) {
+			throw new Error("Shadow git repo not initialized")
+		}
+
+		try {
+			// Try to get from Git config first
+			const config = await this.git.getConfig("roo.lastVerifiedCheckpoint")
+			if (config.value) {
+				this._lastVerifiedCheckpoint = config.value
+				return config.value
+			}
+			return undefined
+		} catch (e) {
+			// If config doesn't exist, return undefined
+			return undefined
 		}
 	}
 
@@ -457,6 +506,28 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 		} else {
 			await git.branch(["-D", branchName])
 			return true
+		}
+	}
+
+	public async setLastVerifiedCheckpoint(commitHash: string) {
+		if (!this.git) {
+			throw new Error("Shadow git repo not initialized")
+		}
+
+		try {
+			// Store in Git config for persistence
+			await this.git.addConfig("roo.lastVerifiedCheckpoint", commitHash)
+			this._lastVerifiedCheckpoint = commitHash
+			this.log(
+				`[${this.constructor.name}#setLastVerifiedCheckpoint] set last verified checkpoint to ${commitHash}`,
+			)
+		} catch (e) {
+			const error = e instanceof Error ? e : new Error(String(e))
+			this.log(
+				`[${this.constructor.name}#setLastVerifiedCheckpoint] failed to set last verified checkpoint: ${error.message}`,
+			)
+			this.emit("error", { type: "error", error })
+			throw error
 		}
 	}
 }

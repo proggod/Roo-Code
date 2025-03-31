@@ -184,7 +184,6 @@ export class Cline extends EventEmitter<ClineEvents> {
 	private enableCheckpoints: boolean
 	private checkpointStorage: CheckpointStorage
 	private checkpointService?: RepoPerTaskCheckpointService | RepoPerWorkspaceCheckpointService
-	private savePointHash: string = "" // Stores the git hash when a checkpoint is saved
 
 	// streaming
 	isWaitingForFirstChunk = false
@@ -4001,35 +4000,29 @@ export class Cline extends EventEmitter<ClineEvents> {
 		previousCommitHash?: string
 		mode: "full" | "checkpoint"
 	}) {
+		console.log(`[Cline] ============================================`)
+		console.log(`[Cline] === CHECKPOINT DIFF METHOD CALLED DIRECTLY ===`)
+		console.log(`[Cline] ============================================`)
+		console.log(`[Cline] checkpointDiff params:`, { ts, previousCommitHash, commitHash, mode })
+
 		const service = await this.getInitializedCheckpointService()
 
 		if (!service) {
+			console.log(`[Cline#checkpointDiff] no service available`)
 			return
 		}
 
 		telemetryService.captureCheckpointDiffed(this.taskId)
 
-		// If commitHash is 'HEAD' or undefined, use the current save point hash
-		if (!commitHash || commitHash === "HEAD") {
-			commitHash = this.savePointHash
-			if (!commitHash) {
-				console.log("[checkpointDiff] No saved hash found, cannot perform diff")
-				vscode.window.showInformationMessage("No checkpoint hash available for diff view.")
-				return
-			}
-		}
-
-		// When we're comparing a commit to the current state, use null/undefined for previousCommitHash
-		// This tells the diff service to compare against the working directory
-		if (!previousCommitHash && mode === "checkpoint") {
-			// We're using undefined rather than the same hash to compare against working tree
-			// This is different from finding the previous checkpoint in history
-			previousCommitHash = undefined
-		}
-
 		try {
-			console.log(`[checkpointDiff] Diffing ${previousCommitHash || "working tree"}..${commitHash}`)
-			const changes = await service.getDiff({ from: previousCommitHash, to: commitHash })
+			// For checkpoint mode, we want to compare the specified commit against the working tree
+			// So we use the commitHash as the 'from' parameter and undefined as the 'to' parameter
+			// This tells git to compare against the working directory
+			const fromRef = mode === "checkpoint" ? commitHash : previousCommitHash
+			const toRef = mode === "checkpoint" ? undefined : commitHash
+
+			console.log(`[checkpointDiff] Diffing ${fromRef || "working tree"}..${toRef || "working tree"}`)
+			const changes = await service.getDiff({ from: fromRef, to: toRef })
 
 			if (!changes?.length) {
 				vscode.window.showInformationMessage("No changes found between current files and checkpoint.")
@@ -4114,14 +4107,34 @@ export class Cline extends EventEmitter<ClineEvents> {
 							// Decrement active views counter
 							activeViews--
 
-							// When all views are closed, reset the savePointHash
+							// When all views are closed, reset the verified checkpoint
 							if (activeViews === 0) {
-								console.log("[checkpointDiff] All diff views closed, resetting saved checkpoint hash")
-								this.savePointHash = ""
+								console.log("[checkpointDiff] All diff views closed, resetting verified checkpoint")
+								const service = this.getCheckpointService()
+								if (service) {
+									// First reset the verified checkpoint
+									await service.resetVerifiedCheckpoint()
+
+									// Then save a new checkpoint - this will automatically become verified since we just reset
+									try {
+										await service.saveCheckpoint("Saving state after diff view closed")
+									} catch (error) {
+										console.error("[checkpointDiff] Failed to save checkpoint:", error)
+										// If saving fails, try to set HEAD as the verified checkpoint
+										try {
+											await service.setLastVerifiedCheckpoint("HEAD")
+										} catch (setError) {
+											console.error(
+												"[checkpointDiff] Failed to set HEAD as verified checkpoint:",
+												setError,
+											)
+										}
+									}
+								}
 
 								const provider = this.providerRef.deref()
 								if (provider) {
-									provider.log("[checkpointDiff] All diff views closed, saved checkpoint hash reset")
+									provider.log("[checkpointDiff] All diff views closed, verified checkpoint reset")
 									provider.postMessageToWebview({ type: "currentCheckpointUpdated", text: "" })
 								}
 							}
@@ -4138,7 +4151,7 @@ export class Cline extends EventEmitter<ClineEvents> {
 		}
 	}
 
-	public checkpointSave() {
+	public async checkpointSave() {
 		const service = this.getCheckpointService()
 
 		if (!service) {
@@ -4155,54 +4168,12 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 		telemetryService.captureCheckpointCreated(this.taskId)
 
-		// Start the checkpoint process in the background.
-		service
-			.saveCheckpoint(`Task: ${this.taskId}, Time: ${Date.now()}`)
-			.then((result) => {
-				// Store hash directly from the result
-				if (result && result.commit) {
-					const fullHash = result.commit
-					const shortHash = fullHash.substring(0, 7)
-					this.savePointHash = fullHash
-
-					// Log both formats
-					const logMessage = `[checkpointSave] Stored checkpoint hash: ${fullHash}`
-					console.log(logMessage)
-					console.log(`[checkpointSave] Short hash for diff viewer: ${shortHash}`)
-
-					const provider = this.providerRef.deref()
-					if (provider) {
-						provider.log(logMessage)
-						provider.log(`[checkpointSave] Short hash for diff viewer: ${shortHash}`)
-					}
-				}
-			})
-			.catch((err) => {
-				console.error("[Cline#checkpointSave] caught unexpected error, disabling checkpoints", err)
-				this.enableCheckpoints = false
-			})
-
-		// Keep the event listener as a backup, but now we're also capturing the hash directly
-		if (!this.savePointHash) {
-			service.once("checkpoint", ({ toHash }) => {
-				// Only set if not already set by the promise handler
-				if (!this.savePointHash) {
-					const fullHash = toHash
-					const shortHash = fullHash.substring(0, 7)
-					this.savePointHash = fullHash
-
-					// Log both formats
-					const logMessage = `[checkpointSave] Stored checkpoint hash: ${fullHash}`
-					console.log(logMessage)
-					console.log(`[checkpointSave] Short hash for diff viewer: ${shortHash}`)
-
-					const provider = this.providerRef.deref()
-					if (provider) {
-						provider.log(logMessage)
-						provider.log(`[checkpointSave] Short hash for diff viewer: ${shortHash}`)
-					}
-				}
-			})
+		try {
+			// Wait for the checkpoint to be saved
+			await service.saveCheckpoint(`Task: ${this.taskId}, Time: ${Date.now()}`)
+		} catch (err) {
+			console.error("[Cline#checkpointSave] caught unexpected error, disabling checkpoints", err)
+			this.enableCheckpoints = false
 		}
 	}
 
@@ -4277,9 +4248,13 @@ export class Cline extends EventEmitter<ClineEvents> {
 		}
 	}
 
-	// Add a getter method to safely expose the saved checkpoint hash
-	public getSavePointHash(): string {
-		return this.savePointHash
+	// Get the current verified checkpoint
+	public async getVerifiedCheckpoint(): Promise<string | undefined> {
+		const service = this.getCheckpointService()
+		if (service) {
+			return await service.getVerifiedCheckpoint()
+		}
+		return undefined
 	}
 }
 

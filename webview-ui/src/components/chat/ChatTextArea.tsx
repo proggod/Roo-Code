@@ -1094,16 +1094,13 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							title={t("chat:viewGitDiff")}
 							disabled={textAreaDisabled}
 							onClick={() => {
-								console.log(
-									"Git compare button clicked - sending checkpointDiff message with specific parameters",
-								)
+								console.log("Sending checkpointDiffWeb message from webview")
 								vscode.postMessage({
-									type: "checkpointDiff",
+									type: "checkpointDiffWeb",
 									payload: {
 										ts: Date.now(),
+										previousCommitHash: undefined, // Explicitly set to undefined to diff against working tree
 										mode: "checkpoint",
-										commitHash: "HEAD", // Use HEAD to reference the latest commit
-										previousCommitHash: undefined, // Use undefined to diff against working tree
 									},
 								})
 							}}
