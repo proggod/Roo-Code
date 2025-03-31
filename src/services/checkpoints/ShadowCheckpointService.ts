@@ -224,6 +224,7 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 
 			if (isFirst || result.commit) {
 				this.emit("checkpoint", { type: "checkpoint", isFirst, fromHash, toHash, duration })
+				this.log(`[${this.constructor.name}#saveCheckpoint] saved checkpoint with hash: ${toHash}`)
 
 				// If this is the first checkpoint or no verified checkpoint exists, set it as verified
 				if (isFirst || !this._lastVerifiedCheckpoint) {
@@ -237,6 +238,7 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 				)
 				return result
 			} else {
+				this.log(`[${this.constructor.name}#saveCheckpoint] no changes detected - no checkpoint was saved`)
 				this.log(`[${this.constructor.name}#saveCheckpoint] found no changes to commit in ${duration}ms`)
 				return undefined
 			}

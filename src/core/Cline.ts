@@ -4117,7 +4117,16 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 									// Then save a new checkpoint - this will automatically become verified since we just reset
 									try {
-										await service.saveCheckpoint("Saving state after diff view closed")
+										const result = await service.saveCheckpoint(
+											"Saving state after diff view closed",
+										)
+										if (result === undefined) {
+											// No changes detected, set HEAD as verified checkpoint
+											console.log(
+												"[checkpointDiff] No changes detected, setting HEAD as verified checkpoint",
+											)
+											await service.setLastVerifiedCheckpoint("HEAD")
+										}
 									} catch (error) {
 										console.error("[checkpointDiff] Failed to save checkpoint:", error)
 										// If saving fails, try to set HEAD as the verified checkpoint
