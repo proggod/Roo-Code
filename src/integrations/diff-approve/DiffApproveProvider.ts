@@ -429,8 +429,8 @@ export class DiffApproveProvider {
 
 					const actions = isPending
 						? `<div class="actions">
-                           <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change #${block.id}</button>
-                           <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change #${block.id}</button>
+                           <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change #${index + 1}</button>
+                           <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change #${index + 1}</button>
                        </div>`
 						: ""
 
@@ -458,8 +458,8 @@ export class DiffApproveProvider {
 				// Single block handling (no related blocks)
 				const actions = isPending
 					? `<div class="actions">
-                       <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change #${block.id}</button>
-                       <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change #${block.id}</button>
+                       <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change #${index + 1}</button>
+                       <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change #${index + 1}</button>
                    </div>`
 					: ""
 

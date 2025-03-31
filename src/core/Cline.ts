@@ -3118,10 +3118,20 @@ export class Cline extends EventEmitter<ClineEvents> {
 									if (!didApprove) {
 										break
 									}
-
 									// tell the provider to remove the current subtask and resume the previous task in the stack
 									await this.providerRef.deref()?.finishSubTask(`Task complete: ${lastMessage?.text}`)
-									break
+								}
+
+								console.log("************************* TASK COMPLETE *************************")
+								// Auto-open diff viewer (same behavior as chat button)
+								try {
+									await this.checkpointDiff({
+										ts: Date.now(),
+										previousCommitHash: undefined, // Diff against working tree
+										mode: "checkpoint",
+									})
+								} catch (error) {
+									console.warn("Failed to auto-open diff viewer:", error)
 								}
 
 								// We already sent completion_result says, an
