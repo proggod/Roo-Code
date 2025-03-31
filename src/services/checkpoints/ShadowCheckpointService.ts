@@ -517,11 +517,14 @@ export abstract class ShadowCheckpointService extends EventEmitter {
 		}
 
 		try {
+			// If HEAD is passed, resolve it to the actual commit hash
+			const actualHash = commitHash === "HEAD" ? await this.git.revparse(["HEAD"]) : commitHash
+
 			// Store in Git config for persistence
-			await this.git.addConfig("roo.lastVerifiedCheckpoint", commitHash)
-			this._lastVerifiedCheckpoint = commitHash
+			await this.git.addConfig("roo.lastVerifiedCheckpoint", actualHash)
+			this._lastVerifiedCheckpoint = actualHash
 			this.log(
-				`[${this.constructor.name}#setLastVerifiedCheckpoint] set last verified checkpoint to ${commitHash}`,
+				`[${this.constructor.name}#setLastVerifiedCheckpoint] set last verified checkpoint to ${actualHash}`,
 			)
 		} catch (e) {
 			const error = e instanceof Error ? e : new Error(String(e))

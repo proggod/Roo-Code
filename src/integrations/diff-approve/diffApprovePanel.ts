@@ -282,7 +282,7 @@ export class DiffApprovePanel {
 			pendingBlocks: Array.from(this._pendingBlocks),
 		})
 
-		vscode.window.showInformationMessage("All changes approved")
+		//		vscode.window.showInformationMessage("All changes approved")
 
 		// Auto-open file when all changes are handled
 		this._checkIfAllBlocksProcessed()
@@ -309,7 +309,7 @@ export class DiffApprovePanel {
 			pendingBlocks: Array.from(this._pendingBlocks),
 		})
 
-		vscode.window.showInformationMessage("All changes denied and reverted")
+		//		vscode.window.showInformationMessage("All changes denied and reverted")
 
 		// Auto-open file when all changes are handled
 		this._checkIfAllBlocksProcessed()
@@ -325,7 +325,7 @@ export class DiffApprovePanel {
 			if (action === "approve") {
 				// For approve, we keep the change and remove the block from pending
 				this._pendingBlocks.delete(blockId)
-				vscode.window.showInformationMessage(`Approved change for block ${blockId}`)
+				//				vscode.window.showInformationMessage(`Approved change for block ${blockId}`)
 			} else if (action === "deny") {
 				// For deny, we revert the change by applying the left side content to the right file
 				const file2Content = fs.readFileSync(this._file2Uri.fsPath, "utf8")
@@ -350,7 +350,7 @@ export class DiffApprovePanel {
 				// Write back the file
 				fs.writeFileSync(this._file2Uri.fsPath, lines.join("\n"), "utf8")
 				this._pendingBlocks.delete(blockId)
-				vscode.window.showInformationMessage(`Denied change for block ${blockId}, reverted to original`)
+				//				vscode.window.showInformationMessage(`Denied change for block ${blockId}, reverted to original`)
 
 				if (updateUI) {
 					// Reload the diff after the change

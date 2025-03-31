@@ -1207,7 +1207,6 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 						console.log(`[ClineProvider] ***************************************`)
 						console.log(`[ClineProvider] *** CHECKPOINT DIFF MESSAGE RECEIVED ***`)
 						console.log(`[ClineProvider] ***************************************`)
-						vscode.window.showInformationMessage("CHECKPOINT DIFF: Message handler triggered!")
 						const cline = this.getCurrentCline()
 						if (cline) {
 							// Get hash from verified checkpoint first
