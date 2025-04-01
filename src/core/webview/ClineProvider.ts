@@ -102,11 +102,6 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 		this.contextProxy = new ContextProxy(context)
 		ClineProvider.activeInstances.add(this)
 
-		// Check experiments and set apiLoggingEnabled
-		this.getState().then((state) => {
-			ClineProvider.apiLoggingEnabled = state.experiments?.[EXPERIMENT_IDS.API_LOGGING] ?? false
-		})
-
 		// Register this provider with the telemetry service to enable it to add
 		// properties like mode and provider.
 		telemetryService.setProvider(this)
@@ -127,6 +122,11 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 			.catch((error) => {
 				this.outputChannel.appendLine(`Failed to initialize MCP Hub: ${error}`)
 			})
+	}
+
+	private async initializeApiLogging() {
+		const state = await this.getState()
+		ClineProvider.apiLoggingEnabled = state.experiments?.[EXPERIMENT_IDS.API_LOGGING] ?? false
 	}
 
 	// Adds a new Cline instance to clineStack, marking the start of a new task.
@@ -350,6 +350,9 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 		if (!this.contextProxy.isInitialized) {
 			await this.contextProxy.initialize()
 		}
+
+		// Initialize API logging before proceeding
+		await this.initializeApiLogging()
 
 		this.view = webviewView
 
