@@ -14,6 +14,7 @@ module.exports = {
 					allowJs: true,
 				},
 				diagnostics: false,
+				isolatedModules: true,
 			},
 		],
 	},
