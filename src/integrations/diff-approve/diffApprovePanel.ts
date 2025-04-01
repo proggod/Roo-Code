@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import * as fs from "fs"
+import * as fs from "fs/promises"
 import * as path from "path"
 import { getNonce } from "./util"
 import { DiffContent, DiffBlock, ApprovalAction } from "./types"
@@ -112,20 +112,25 @@ export class DiffApprovePanel {
 	private async _loadDiffContent(): Promise<void> {
 		try {
 			// Read file contents
-			const file1Content = fs.readFileSync(this._file1Uri.fsPath, "utf8")
-			const file2Content = fs.readFileSync(this._file2Uri.fsPath, "utf8")
+			const file1Content = await fs.readFile(this._file1Uri.fsPath, "utf8")
+			const file2Content = await fs.readFile(this._file2Uri.fsPath, "utf8")
 
-			// Calculate diff using our diff algorithm
-			const diffs = await this._computeDiff(file1Content, file2Content)
-
+			// Compute diff
 			this._diffContent = {
 				file1: path.basename(this._file1Uri.fsPath),
 				file2: path.basename(this._file2Uri.fsPath),
-				blocks: diffs,
+				blocks: await this._computeDiff(file1Content, file2Content),
 			}
-		} catch (err) {
+
+			// Update webview
+			this._panel.webview.postMessage({
+				command: "contentLoaded",
+				content: this._diffContent,
+				pendingBlocks: Array.from(this._pendingBlocks),
+			})
+		} catch (error) {
 			vscode.window.showErrorMessage(
-				`Error loading diff content: ${err instanceof Error ? err.message : String(err)}`,
+				`Error loading diff content: ${error instanceof Error ? error.message : String(error)}`,
 			)
 		}
 	}
@@ -328,7 +333,7 @@ export class DiffApprovePanel {
 				//				vscode.window.showInformationMessage(`Approved change for block ${blockId}`)
 			} else if (action === "deny") {
 				// For deny, we revert the change by applying the left side content to the right file
-				const file2Content = fs.readFileSync(this._file2Uri.fsPath, "utf8")
+				const file2Content = await fs.readFile(this._file2Uri.fsPath, "utf8")
 				const lines = file2Content.split("\n")
 
 				// Apply the revert
@@ -348,7 +353,7 @@ export class DiffApprovePanel {
 				}
 
 				// Write back the file
-				fs.writeFileSync(this._file2Uri.fsPath, lines.join("\n"), "utf8")
+				await fs.writeFile(this._file2Uri.fsPath, lines.join("\n"), "utf8")
 				this._pendingBlocks.delete(blockId)
 				//				vscode.window.showInformationMessage(`Denied change for block ${blockId}, reverted to original`)
 
@@ -365,9 +370,9 @@ export class DiffApprovePanel {
 
 			// Check if all blocks have been processed
 			this._checkIfAllBlocksProcessed()
-		} catch (err) {
+		} catch (error) {
 			vscode.window.showErrorMessage(
-				`Error handling approval: ${err instanceof Error ? err.message : String(err)}`,
+				`Error handling approval: ${error instanceof Error ? error.message : String(error)}`,
 			)
 		}
 	}
