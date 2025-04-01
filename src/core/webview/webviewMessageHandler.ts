@@ -9,6 +9,7 @@ import { changeLanguage, t } from "../../i18n"
 import { ApiConfiguration } from "../../shared/api"
 import { supportPrompt } from "../../shared/support-prompt"
 import { GlobalFileNames } from "../../shared/globalFileNames"
+import { updateSystemPromptAppendText } from "../Cline"
 
 import { checkoutDiffPayloadSchema, checkoutRestorePayloadSchema, WebviewMessage } from "../../shared/WebviewMessage"
 import { checkExistKey } from "../../shared/checkExistApiConfig"
@@ -1354,6 +1355,9 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 
 			break
 		}
+		case "updateSystemPromptAppendText":
+			updateSystemPromptAppendText(message.text || "")
+			break
 	}
 }
 

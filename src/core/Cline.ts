@@ -2546,7 +2546,12 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 			// Track number of active diff views to know when all are closed
 			let activeViews = changes.length
-			console.log(`[checkpointDiff] Starting with ${activeViews} active views`)
+			// Add a set to track which files have already been processed
+			const processedFiles = new Set<string>()
+			console.log(`[checkpointDiff] Starting with ${activeViews} active views`, {
+				changesLength: changes.length,
+				changesPaths: changes.map((c) => c.paths.relative),
+			})
 
 			// Show each change in the diff approve view
 			for (const change of changes) {
@@ -2613,17 +2618,43 @@ export class Cline extends EventEmitter<ClineEvents> {
 						}
 					},
 					async () => {
+						// Check if this file has already been processed to avoid duplicate callbacks
+						if (processedFiles.has(change.paths.relative)) {
+							console.log(
+								`[checkpointDiff] File ${change.paths.relative} has already been processed, ignoring duplicate callback`,
+							)
+							return // Skip processing for files we've already handled
+						}
+
+						console.log(
+							`[checkpointDiff] onAllBlocksProcessed callback started for file: ${change.paths.relative}`,
+						)
 						try {
 							// Clean up temp file
-							await vscode.workspace.fs.delete(oldVersionUri)
+							try {
+								await vscode.workspace.fs.delete(oldVersionUri)
+							} catch (error) {
+								console.log(
+									`[checkpointDiff] Error deleting temp file (may already be deleted): ${error.message}`,
+								)
+							}
+
+							// Mark this file as processed
+							processedFiles.add(change.paths.relative)
 
 							// Decrement active views counter
 							console.log(
 								`[checkpointDiff] Decrementing activeViews from ${activeViews} to ${activeViews - 1}`,
+								{ file: change.paths.relative },
 							)
 							activeViews--
 
 							// When all views are closed, reset the verified checkpoint
+							console.log(`[checkpointDiff] After decrement, activeViews=${activeViews}`, {
+								file: change.paths.relative,
+								processedCount: processedFiles.size,
+								totalChanges: changes.length,
+							})
 							if (activeViews === 0) {
 								console.log(
 									"✅✅✅ [checkpointDiff] All diff views closed, resetting verified checkpoint ✅✅✅",
@@ -2664,7 +2695,14 @@ export class Cline extends EventEmitter<ClineEvents> {
 									provider.log("[checkpointDiff] All diff views closed, verified checkpoint reset")
 									provider.postMessageToWebview({ type: "currentCheckpointUpdated", text: "" })
 								}
+							} else {
+								console.log(
+									`[checkpointDiff] Still waiting for ${activeViews} more files to be processed`,
+								)
 							}
+							console.log(
+								`[checkpointDiff] onAllBlocksProcessed callback completed for file: ${change.paths.relative}`,
+							)
 						} catch (error) {
 							console.error("Failed to cleanup:", error)
 						}

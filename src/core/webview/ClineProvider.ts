@@ -54,6 +54,7 @@ import { getWorkspacePath } from "../../utils/path"
 import { webviewMessageHandler } from "./webviewMessageHandler"
 import { WebviewMessage } from "../../shared/WebviewMessage"
 import { getSystemPromptAppendText, updateSystemPromptAppendText, clearSystemPromptAppendText } from "../Cline"
+import { setApiLoggingEnabled } from "../../utils/api-logger"
 
 /**
  * https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -66,6 +67,7 @@ export type ClineProviderEvents = {
 
 export class ClineProvider extends EventEmitter<ClineProviderEvents> implements vscode.WebviewViewProvider {
 	public static readonly sideBarId = "roo-cline.SidebarProvider" // used in package.json as the view's id. This value cannot be changed due to how vscode caches views based on their id, and updating the id would break existing instances of the extension.
+	public static apiLoggingEnabled = false
 	public static readonly tabPanelId = "roo-cline.TabPanelProvider"
 	private static activeInstances: Set<ClineProvider> = new Set()
 	private disposables: vscode.Disposable[] = []
@@ -99,6 +101,11 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 		this.outputChannel.appendLine("ClineProvider instantiated")
 		this.contextProxy = new ContextProxy(context)
 		ClineProvider.activeInstances.add(this)
+
+		// Check experiments and set apiLoggingEnabled
+		this.getState().then((state) => {
+			ClineProvider.apiLoggingEnabled = state.experiments?.[EXPERIMENT_IDS.API_LOGGING] ?? false
+		})
 
 		// Register this provider with the telemetry service to enable it to add
 		// properties like mode and provider.
@@ -690,7 +697,7 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 		content security policy of your webview to only allow scripts that have a specific nonce
 		create a content security policy meta tag so that only loading scripts with a nonce is allowed
 		As your extension grows you will likely want to add custom styles, fonts, and/or images to your webview. If you do, you will need to update the content security policy meta tag to explicity allow for these resources. E.g.
-				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; font-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}';">
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; font-src ${webview.cspSource}; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' https://us-assets.i.posthog.com; connect-src https://openrouter.ai https://api.requesty.ai https://us.i.posthog.com https://us-assets.i.posthog.com;">
 		- 'unsafe-inline' is required for styles due to vscode-webview-toolkit's dynamic style injection
 		- since we pass base64 images to the webview, we need to specify img-src ${webview.cspSource} data:;
 
@@ -1360,6 +1367,12 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 	// not private, so it can be accessed from webviewMessageHandler
 	async updateGlobalState<K extends keyof GlobalState>(key: K, value: GlobalState[K]) {
 		await this.contextProxy.setValue(key, value)
+
+		// Update API logging flag when experiment state changes
+		if (key === "experiments") {
+			const experiments = value as Record<string, boolean>
+			setApiLoggingEnabled(experiments[EXPERIMENT_IDS.API_LOGGING] ?? false)
+		}
 	}
 
 	// @deprecated - Use `ContextProxy#getValue` instead.
@@ -1481,7 +1494,6 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 		if (currentCline?.diffStrategy) {
 			properties.diffStrategy = currentCline.diffStrategy.getName()
 		}
-
 		return properties
 	}
 }

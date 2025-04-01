@@ -340,6 +340,10 @@
 		"MULTI_SEARCH_AND_REPLACE": {
 			"name": "Use experimental multi block diff tool",
 			"description": "When enabled, Roo will use multi block diff tool. This will try to update multiple code blocks in the file in one request."
+		},
+		"API_LOGGING": {
+			"name": "API Logging",
+			"description": "Enable detailed logging of API requests and responses for debugging purposes. This feature may impact performance and should only be enabled when needed."
 		}
 	},
 	"temperature": {

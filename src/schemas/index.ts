@@ -279,6 +279,7 @@ export const experimentIds = [
 	"experimentalDiffStrategy",
 	"insert_content",
 	"powerSteering",
+	"apiLogging",
 ] as const
 
 export const experimentIdsSchema = z.enum(experimentIds)
@@ -294,6 +295,7 @@ const experimentsSchema = z.object({
 	experimentalDiffStrategy: z.boolean(),
 	insert_content: z.boolean(),
 	powerSteering: z.boolean(),
+	apiLogging: z.boolean(),
 })
 
 export type Experiments = z.infer<typeof experimentsSchema>

@@ -259,6 +259,7 @@ type GlobalSettings = {
 				experimentalDiffStrategy: boolean
 				insert_content: boolean
 				powerSteering: boolean
+				apiLogging: boolean
 		  }
 		| undefined
 	language?:
