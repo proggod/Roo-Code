@@ -1,29 +1,34 @@
 {
-	"$schema": "https://unpkg.com/knip@latest/schema.json",
-	"entry": ["src/extension.ts", "src/activate/index.ts", "webview-ui/src/index.tsx"],
-	"project": ["src/**/*.ts", "webview-ui/src/**/*.{ts,tsx}"],
+	"ignoreDependencies": [],
+	"ignoreBinaries": [],
+	"ignoreExportsUsedInFile": {},
+	"entry": ["src/**/*.ts", "webview-ui/src/index.tsx"],
+	"project": "**/*.{js,ts,jsx,tsx}",
 	"ignore": [
+		"media/diffApprove.ts",
+		"media/diffApprove.js",
 		"**/__mocks__/**",
 		"**/__tests__/**",
-		"**/test/**",
 		"**/*.test.ts",
 		"**/*.test.tsx",
-		"**/stories/**",
-		"coverage/**",
-		"dist/**",
-		"out/**",
-		"bin/**",
 		"e2e/**",
+		"scripts/**",
 		"benchmark/**",
-		"src/activate/**",
-		"src/exports/**",
-		"src/extension.ts",
-		"scripts/**"
+		"webview-ui/build/**",
+		"webview-ui/src/stories/**",
+		"webview-ui/src/components/**",
+		"webview-ui/src/utils/**",
+		"webview-ui/src/context/**",
+		"webview-ui/src/i18n/**",
+		"webview-ui/src/lib/**",
+		"webview-ui/src/oauth/**",
+		"webview-ui/src/*.d.ts",
+		"webview-ui/src/setupTests.ts",
+		"webview-ui/.storybook/**",
+		"webview-ui/vite.config.ts",
+		"*.config.{js,ts,cjs,mjs,json}"
 	],
-	"workspaces": {
-		"webview-ui": {
-			"entry": ["src/index.tsx"],
-			"project": ["src/**/*.{ts,tsx}"]
-		}
+	"rules": {
+		"files": "warn"
 	}
 }
