@@ -2502,6 +2502,7 @@ export class Cline extends EventEmitter<ClineEvents> {
 		previousCommitHash?: string
 		mode: "full" | "checkpoint"
 	}) {
+		console.warn("[TASK_COMPLETE_DEBUG] CHECKPOINT DIFF METHOD CALLED! THIS SHOULD BE VISIBLE!")
 		console.log(`[Cline] ==========================================================`)
 		console.log(
 			`[Cline] === CHECKPOINT DIFF CALLED === FROM: ${new Error().stack?.split("\\n")[2]?.trim() || "unknown"}`,

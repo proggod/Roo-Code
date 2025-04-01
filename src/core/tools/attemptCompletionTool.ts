@@ -146,6 +146,15 @@ export async function attemptCompletionTool(
 
 			console.log("************************* TASK COMPLETE *************************")
 			// Auto-open diff viewer (same behavior as chat button)
+			console.log("[TASK_COMPLETE_DEBUG] Entering auto-diff section")
+			console.log("[TASK_COMPLETE_DEBUG] cline instance:", {
+				hasCheckpointDiff: !!cline.checkpointDiff,
+				taskId: cline.taskId,
+				instance: cline.instanceId,
+			})
+			// Show a UI message to verify execution reaches this point
+			const vscode = require("vscode")
+			vscode.window.showInformationMessage("About to attempt opening diff viewer")
 			try {
 				console.log("[attemptCompletionTool] Attempting to auto-open diff viewer")
 				await cline.checkpointDiff({
