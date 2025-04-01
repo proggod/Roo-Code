@@ -15,6 +15,7 @@ import { convertToSimpleMessages } from "../transform/simple-format"
 import { ApiStream, ApiStreamUsageChunk } from "../transform/stream"
 import { BaseProvider } from "./base-provider"
 import { XmlMatcher } from "../../utils/xml-matcher"
+import { logApiRequest } from "../../utils/api-logger"
 
 const DEEP_SEEK_DEFAULT_TEMPERATURE = 0.6
 
@@ -131,6 +132,11 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 			if (this.options.includeMaxTokens) {
 				requestOptions.max_tokens = modelInfo.maxTokens
 			}
+
+			logApiRequest({
+				systemPrompt,
+				messages,
+			})
 
 			const stream = await this.client.chat.completions.create(requestOptions)
 

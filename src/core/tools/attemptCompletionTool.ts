@@ -143,6 +143,19 @@ export async function attemptCompletionTool(
 			})
 
 			cline.userMessageContent.push(...toolResults)
+
+			console.log("************************* TASK COMPLETE *************************")
+			// Auto-open diff viewer (same behavior as chat button)
+			try {
+				await cline.checkpointDiff({
+					ts: Date.now(),
+					previousCommitHash: undefined, // Diff against working tree
+					mode: "checkpoint",
+				})
+			} catch (error) {
+				console.warn("Failed to auto-open diff viewer:", error)
+			}
+
 			return
 		}
 	} catch (error) {

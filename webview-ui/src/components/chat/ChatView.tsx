@@ -24,6 +24,7 @@ import Announcement from "./Announcement"
 import BrowserSessionRow from "./BrowserSessionRow"
 import ChatRow from "./ChatRow"
 import ChatTextArea from "./ChatTextArea"
+import SystemPromptTextArea from "./SystemPromptTextArea"
 import TaskHeader from "./TaskHeader"
 import AutoApproveMenu from "./AutoApproveMenu"
 import { AudioType } from "../../../../src/shared/WebviewMessage"
@@ -78,6 +79,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 	const apiMetrics = useMemo(() => getApiMetrics(modifiedMessages), [modifiedMessages])
 
 	const [inputValue, setInputValue] = useState("")
+	const [systemPromptAppendText, setSystemPromptAppendText] = useState("")
 	const textAreaRef = useRef<HTMLTextAreaElement>(null)
 	const [textAreaDisabled, setTextAreaDisabled] = useState(false)
 	const [selectedImages, setSelectedImages] = useState<string[]>([])
@@ -315,6 +317,16 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 		return false
 	}, [modifiedMessages, clineAsk, enableButtons, primaryButtonText])
 
+	const handleChatInputReset = useCallback(() => {
+		// Reset only chat input related state
+		setInputValue("")
+		setTextAreaDisabled(true)
+		setSelectedImages([])
+		setClineAsk(undefined)
+		setEnableButtons(false)
+		disableAutoScrollRef.current = false
+	}, [])
+
 	const handleChatReset = useCallback(() => {
 		// Only reset message-specific state, preserving mode.
 		setInputValue("")
@@ -322,9 +334,6 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 		setSelectedImages([])
 		setClineAsk(undefined)
 		setEnableButtons(false)
-		// Do not reset mode here as it should persist.
-		// setPrimaryButtonText(undefined)
-		// setSecondaryButtonText(undefined)
 		disableAutoScrollRef.current = false
 	}, [])
 
@@ -339,22 +348,21 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 						case "followup":
 						case "tool":
 						case "browser_action_launch":
-						case "command": // User can provide feedback to a tool or command use.
-						case "command_output": // User can send input to command stdin.
+						case "command":
+						case "command_output":
 						case "use_mcp_server":
-						case "completion_result": // If this happens then the user has feedback for the completion result.
+						case "completion_result":
 						case "resume_task":
 						case "resume_completed_task":
 						case "mistake_limit_reached":
 							vscode.postMessage({ type: "askResponse", askResponse: "messageResponse", text, images })
 							break
-						// There is no other case that a textfield should be enabled.
 					}
 				}
-				handleChatReset()
+				handleChatInputReset() // Only reset chat input, not system prompt
 			}
 		},
-		[messages.length, clineAsk, handleChatReset],
+		[messages.length, clineAsk, handleChatInputReset],
 	)
 
 	const handleSetChatBoxMessage = useCallback(
@@ -372,7 +380,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 	)
 
 	const startNewTask = useCallback(() => {
-		vscode.postMessage({ type: "clearTask" })
+		vscode.postMessage({ type: "newTask" })
 	}, [])
 
 	/*
@@ -508,7 +516,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				case "invoke":
 					switch (message.invoke!) {
 						case "newChat":
-							handleChatReset()
+							handleChatReset() // Full reset for new chat
 							break
 						case "sendMessage":
 							handleSendMessage(message.text ?? "", message.images ?? [])
@@ -1340,6 +1348,12 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					)}
 				</>
 			)}
+
+			<SystemPromptTextArea
+				inputValue={systemPromptAppendText}
+				setInputValue={setSystemPromptAppendText}
+				placeholderText="System prompt append text..."
+			/>
 
 			<ChatTextArea
 				ref={textAreaRef}

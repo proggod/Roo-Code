@@ -26,6 +26,7 @@ import {
 } from "./sections"
 import { loadSystemPromptFile } from "./sections/custom-system-prompt"
 import { formatLanguage } from "../../shared/language"
+import { getSystemPromptAppendText } from "../Cline"
 
 async function generatePrompt(
 	context: vscode.ExtensionContext,
@@ -47,6 +48,10 @@ async function generatePrompt(
 	if (!context) {
 		throw new Error("Extension context is required for generating system prompt")
 	}
+
+	// Get the current value of systemPromptAppendText
+	const systemPromptAppendText = getSystemPromptAppendText()
+	console.log("[generatePrompt] Generating system prompt with append text:", systemPromptAppendText)
 
 	// If diff is disabled, don't pass the diffStrategy
 	const effectiveDiffStrategy = diffEnabled ? diffStrategy : undefined
@@ -91,7 +96,9 @@ ${getSystemInfoSection(cwd, mode, customModeConfigs)}
 
 ${getObjectiveSection()}
 
-${await addCustomInstructions(promptComponent?.customInstructions || modeConfig.customInstructions || "", globalCustomInstructions || "", cwd, mode, { language: language ?? formatLanguage(vscode.env.language), rooIgnoreInstructions })}`
+${await addCustomInstructions(promptComponent?.customInstructions || modeConfig.customInstructions || "", globalCustomInstructions || "", cwd, mode, { language: language ?? formatLanguage(vscode.env.language), rooIgnoreInstructions })}
+
+${systemPromptAppendText}`
 
 	return basePrompt
 }

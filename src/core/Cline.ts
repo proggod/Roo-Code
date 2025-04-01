@@ -16,6 +16,7 @@ import { TokenUsage } from "../schemas"
 import { ApiHandler, buildApiHandler } from "../api"
 import { ApiStream } from "../api/transform/stream"
 import { DIFF_VIEW_URI_SCHEME, DiffViewProvider } from "../integrations/editor/DiffViewProvider"
+import { DIFF_APPROVE_URI_SCHEME, DiffApproveProvider } from "../integrations/diff-approve/DiffApproveProvider"
 import {
 	CheckpointServiceOptions,
 	RepoPerTaskCheckpointService,
@@ -66,6 +67,7 @@ import { DiffStrategy, getDiffStrategy } from "./diff/DiffStrategy"
 import { telemetryService } from "../services/telemetry/TelemetryService"
 import { validateToolUse, isToolAllowedForMode, ToolName } from "./mode-validator"
 import { getWorkspacePath } from "../utils/path"
+//HERE
 import { writeToFileTool } from "./tools/writeToFileTool"
 import { applyDiffTool } from "./tools/applyDiffTool"
 import { insertContentTool } from "./tools/insertContentTool"
@@ -80,6 +82,28 @@ import { askFollowupQuestionTool } from "./tools/askFollowupQuestionTool"
 import { switchModeTool } from "./tools/switchModeTool"
 import { attemptCompletionTool } from "./tools/attemptCompletionTool"
 import { newTaskTool } from "./tools/newTaskTool"
+//HERE
+
+import * as diff from "diff"
+
+// The text to append to system prompt
+let systemPromptAppendText = ""
+
+export function updateSystemPromptAppendText(text: string) {
+	console.log("[systemPromptAppendText] Updating to:", text)
+	systemPromptAppendText = text
+}
+
+export function getSystemPromptAppendText() {
+	console.log("[systemPromptAppendText] Current value:", systemPromptAppendText)
+	return systemPromptAppendText
+}
+
+// Clear the append text when starting a new task
+export function clearSystemPromptAppendText() {
+	console.log("[systemPromptAppendText] Clearing")
+	systemPromptAppendText = ""
+}
 
 export type ToolResponse = string | Array<Anthropic.TextBlockParam | Anthropic.ImageBlockParam>
 type UserContent = Array<Anthropic.Messages.ContentBlockParam>
@@ -2049,6 +2073,9 @@ export class Cline extends EventEmitter<ClineEvents> {
 			// 2. ToolResultBlockParam's content/context text arrays if it contains "<feedback>" (see formatToolDeniedFeedback, attemptCompletion, executeCommand, and consecutiveMistakeCount >= 3) or "<answer>" (see askFollowupQuestion), we place all user generated content in these tags so they can effectively be used as markers for when we should parse mentions)
 			Promise.all(
 				userContent.map(async (block) => {
+					const state = (await this.providerRef.deref()?.getState()) || {}
+					const osInfo = (state as { osInfo?: string }).osInfo || "unix"
+
 					const shouldProcessMentions = (text: string) =>
 						text.includes("<task>") || text.includes("<feedback>")
 
@@ -2056,19 +2083,16 @@ export class Cline extends EventEmitter<ClineEvents> {
 						if (shouldProcessMentions(block.text)) {
 							return {
 								...block,
-								text: await parseMentions(block.text, this.cwd, this.urlContentFetcher),
+								text: await parseMentions(block.text, this.cwd, this.urlContentFetcher, osInfo),
 							}
 						}
 						return block
 					} else if (block.type === "tool_result") {
-						if (typeof block.content === "string") {
-							if (shouldProcessMentions(block.content)) {
-								return {
-									...block,
-									content: await parseMentions(block.content, this.cwd, this.urlContentFetcher),
-								}
+						if (typeof block.content === "string" && shouldProcessMentions(block.content)) {
+							return {
+								...block,
+								content: await parseMentions(block.content, this.cwd, this.urlContentFetcher, osInfo),
 							}
-							return block
 						} else if (Array.isArray(block.content)) {
 							const parsedContent = await Promise.all(
 								block.content.map(async (contentBlock) => {
@@ -2079,6 +2103,7 @@ export class Cline extends EventEmitter<ClineEvents> {
 												contentBlock.text,
 												this.cwd,
 												this.urlContentFetcher,
+												osInfo,
 											),
 										}
 									}
@@ -2473,55 +2498,170 @@ export class Cline extends EventEmitter<ClineEvents> {
 		mode,
 	}: {
 		ts: number
+		commitHash?: string
 		previousCommitHash?: string
-		commitHash: string
 		mode: "full" | "checkpoint"
 	}) {
+		console.log(`[Cline] ============================================`)
+		console.log(`[Cline] === CHECKPOINT DIFF METHOD CALLED DIRECTLY ===`)
+		console.log(`[Cline] ============================================`)
+		console.log(`[Cline] checkpointDiff params:`, { ts, previousCommitHash, commitHash, mode })
+
 		const service = await this.getInitializedCheckpointService()
 
 		if (!service) {
+			console.log(`[Cline#checkpointDiff] no service available`)
 			return
 		}
 
 		telemetryService.captureCheckpointDiffed(this.taskId)
 
-		if (!previousCommitHash && mode === "checkpoint") {
-			const previousCheckpoint = this.clineMessages
-				.filter(({ say }) => say === "checkpoint_saved")
-				.sort((a, b) => b.ts - a.ts)
-				.find((message) => message.ts < ts)
-
-			previousCommitHash = previousCheckpoint?.text
-		}
-
 		try {
-			const changes = await service.getDiff({ from: previousCommitHash, to: commitHash })
+			// For checkpoint mode, we want to compare the specified commit against the working tree
+			// So we use the commitHash as the 'from' parameter and undefined as the 'to' parameter
+			// This tells git to compare against the working directory
+			const fromRef = mode === "checkpoint" ? commitHash : previousCommitHash
+			const toRef = mode === "checkpoint" ? undefined : commitHash
+
+			console.log(`[checkpointDiff] Diffing ${fromRef || "working tree"}..${toRef || "working tree"}`)
+			const changes = await service.getDiff({ from: fromRef, to: toRef })
 
 			if (!changes?.length) {
-				vscode.window.showInformationMessage("No changes found.")
+				vscode.window.showInformationMessage("No changes found between current files and checkpoint.")
 				return
 			}
 
-			await vscode.commands.executeCommand(
-				"vscode.changes",
-				mode === "full" ? "Changes since task started" : "Changes since previous checkpoint",
-				changes.map((change) => [
-					vscode.Uri.file(change.paths.absolute),
-					vscode.Uri.parse(`${DIFF_VIEW_URI_SCHEME}:${change.paths.relative}`).with({
-						query: Buffer.from(change.content.before ?? "").toString("base64"),
-					}),
-					vscode.Uri.parse(`${DIFF_VIEW_URI_SCHEME}:${change.paths.relative}`).with({
-						query: Buffer.from(change.content.after ?? "").toString("base64"),
-					}),
-				]),
-			)
+			// Create a new instance of DiffApproveProvider
+			const provider = new DiffApproveProvider(this.providerRef.deref()?.context.extensionUri!)
+
+			// Track number of active diff views to know when all are closed
+			let activeViews = changes.length
+
+			// Show each change in the diff approve view
+			for (const change of changes) {
+				// Create a temporary file for the old version from git
+				const tempDir = vscode.Uri.joinPath(this.providerRef.deref()?.context.extensionUri!, "temp")
+				const oldVersionFileName = `${path.basename(change.paths.relative)}.${previousCommitHash?.substring(0, 7) || "original"}`
+				const oldVersionUri = vscode.Uri.joinPath(tempDir, oldVersionFileName)
+
+				// Use actual file path for working copy
+				const workingUri = vscode.Uri.file(change.paths.absolute)
+
+				// Ensure temp directory exists
+				try {
+					await vscode.workspace.fs.createDirectory(tempDir)
+				} catch (error) {
+					// Directory might already exist
+				}
+
+				// Write old content from git to temp file
+				await vscode.workspace.fs.writeFile(oldVersionUri, Buffer.from(change.content.before || ""))
+
+				// Show diff with approval UI
+				await provider.show(
+					oldVersionUri,
+					workingUri,
+					async (blockId: number, approved: boolean) => {
+						if (approved) {
+							vscode.window.showInformationMessage(
+								`Block ${blockId} in ${change.paths.relative} approved`,
+							)
+						} else {
+							// For denied blocks, revert that block in the working file
+							const blocks = provider.findRelatedBlocks(blockId)
+							if (blocks.length > 0) {
+								const workingContent = await vscode.workspace.fs.readFile(workingUri)
+								let workingLines = workingContent.toString().split("\n")
+
+								// Process blocks in reverse order to handle line numbers correctly
+								for (const block of blocks.reverse()) {
+									switch (block.type) {
+										case "addition":
+											// Remove added lines
+											workingLines.splice(block.newStart - 1, block.newLines.length)
+											break
+										case "deletion":
+											// Restore deleted lines at the correct position
+											workingLines.splice(block.oldStart - 1, 0, ...block.oldLines)
+											break
+										case "change":
+											// Replace changed lines with original
+											workingLines.splice(
+												block.newStart - 1,
+												block.newLines.length,
+												...block.oldLines,
+											)
+											break
+									}
+								}
+
+								// Write back the updated content
+								await vscode.workspace.fs.writeFile(workingUri, Buffer.from(workingLines.join("\n")))
+							}
+							vscode.window.showInformationMessage(`Changes in ${change.paths.relative} reverted`)
+						}
+					},
+					async () => {
+						try {
+							// Clean up temp file
+							await vscode.workspace.fs.delete(oldVersionUri)
+
+							// Decrement active views counter
+							activeViews--
+
+							// When all views are closed, reset the verified checkpoint
+							if (activeViews === 0) {
+								console.log("[checkpointDiff] All diff views closed, resetting verified checkpoint")
+								const service = this.getCheckpointService()
+								if (service) {
+									// First reset the verified checkpoint
+									await service.resetVerifiedCheckpoint()
+
+									// Then save a new checkpoint - this will automatically become verified since we just reset
+									try {
+										const result = await service.saveCheckpoint(
+											"Saving state after diff view closed",
+										)
+										if (result === undefined) {
+											// No changes detected, set HEAD as verified checkpoint
+											console.log(
+												"[checkpointDiff] No changes detected, setting HEAD as verified checkpoint",
+											)
+											await service.setLastVerifiedCheckpoint("HEAD")
+										}
+									} catch (error) {
+										console.error("[checkpointDiff] Failed to save checkpoint:", error)
+										// If saving fails, try to set HEAD as the verified checkpoint
+										try {
+											await service.setLastVerifiedCheckpoint("HEAD")
+										} catch (setError) {
+											console.error(
+												"[checkpointDiff] Failed to set HEAD as verified checkpoint:",
+												setError,
+											)
+										}
+									}
+								}
+
+								const provider = this.providerRef.deref()
+								if (provider) {
+									provider.log("[checkpointDiff] All diff views closed, verified checkpoint reset")
+									provider.postMessageToWebview({ type: "currentCheckpointUpdated", text: "" })
+								}
+							}
+						} catch (error) {
+							console.error("Failed to cleanup:", error)
+						}
+					},
+				)
+			}
 		} catch (err) {
 			this.providerRef.deref()?.log("[checkpointDiff] disabling checkpoints for this task")
 			this.enableCheckpoints = false
 		}
 	}
 
-	public checkpointSave() {
+	public async checkpointSave() {
 		const service = this.getCheckpointService()
 
 		if (!service) {
@@ -2538,11 +2678,13 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 		telemetryService.captureCheckpointCreated(this.taskId)
 
-		// Start the checkpoint process in the background.
-		service.saveCheckpoint(`Task: ${this.taskId}, Time: ${Date.now()}`).catch((err) => {
+		try {
+			// Wait for the checkpoint to be saved
+			await service.saveCheckpoint(`Task: ${this.taskId}, Time: ${Date.now()}`)
+		} catch (err) {
 			console.error("[Cline#checkpointSave] caught unexpected error, disabling checkpoints", err)
 			this.enableCheckpoints = false
-		})
+		}
 	}
 
 	public async checkpointRestore({
@@ -2615,4 +2757,17 @@ export class Cline extends EventEmitter<ClineEvents> {
 			this.enableCheckpoints = false
 		}
 	}
+
+	// Get the current verified checkpoint
+	public async getVerifiedCheckpoint(): Promise<string | undefined> {
+		const service = this.getCheckpointService()
+		if (service) {
+			return await service.getVerifiedCheckpoint()
+		}
+		return undefined
+	}
+}
+
+function escapeRegExp(string: string): string {
+	return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
