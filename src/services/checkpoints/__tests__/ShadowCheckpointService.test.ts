@@ -13,6 +13,23 @@ import { ShadowCheckpointService } from "../ShadowCheckpointService"
 import { RepoPerTaskCheckpointService } from "../RepoPerTaskCheckpointService"
 import { RepoPerWorkspaceCheckpointService } from "../RepoPerWorkspaceCheckpointService"
 
+const mockGit = {
+	init: jest.fn().mockResolvedValue(undefined),
+	addConfig: jest.fn().mockResolvedValue(undefined),
+	add: jest.fn().mockResolvedValue(undefined),
+	commit: jest.fn().mockResolvedValue({ commit: "mock-commit-hash" }),
+	diff: jest.fn().mockResolvedValue("mock-diff"),
+	show: jest.fn().mockResolvedValue("mock-content"),
+	checkout: jest.fn().mockResolvedValue(undefined),
+	status: jest.fn().mockResolvedValue({ modified: [], not_added: [], staged: [] }),
+}
+
+jest.mock("simple-git", () => {
+	return {
+		simpleGit: jest.fn().mockReturnValue(mockGit),
+	}
+})
+
 jest.mock("globby", () => ({
 	globby: jest.fn().mockResolvedValue([]),
 }))

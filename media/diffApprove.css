@@ -1,6 +1,7 @@
 body {
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
-		"Helvetica Neue", sans-serif;
+	font-family:
+		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+		sans-serif;
 	padding: 0;
 	margin: 0;
 }
@@ -27,13 +28,13 @@ body {
 }
 
 button {
-	padding: 6px 12px;
+	padding: 2px 8px;
 	border: 1px solid var(--vscode-button-border);
 	border-radius: 4px;
 	background: var(--vscode-button-background);
 	color: var(--vscode-button-foreground);
 	cursor: pointer;
-	font-size: 12px;
+	font-size: 11px;
 }
 
 button:hover {
@@ -41,32 +42,32 @@ button:hover {
 }
 
 .diff-content {
-	padding: 16px;
+	padding: 0;
 }
 
 .diff-block {
-	margin-bottom: 24px;
+	margin: 0;
 	border: 1px solid var(--vscode-panel-border);
-	border-radius: 4px;
+	border-radius: 0;
 	overflow: hidden;
 }
 
 .diff-block.approved {
 	opacity: 0.7;
-	border-left: 4px solid #28a745;
+	border-left: 4px solid #2e7d32;
 }
 
 .diff-block.denied {
 	opacity: 0.7;
-	border-left: 4px solid #dc3545;
+	border-left: 4px solid #c62828;
 }
 
 .block-header {
-	padding: 8px 16px;
+	padding: 2px 8px;
 	background: var(--vscode-editor-background);
 	border-bottom: 1px solid var(--vscode-panel-border);
 	display: flex;
-	justify-content: space-between;
+	justify-content: flex-end;
 	align-items: center;
 }
 
@@ -76,26 +77,26 @@ button:hover {
 }
 
 .approve-button {
-	background: #28a745;
-	border-color: #28a745;
+	background: #2e7d32;
+	border-color: #2e7d32;
 }
 
 .deny-button {
-	background: #dc3545;
-	border-color: #dc3545;
+	background: #c62828;
+	border-color: #c62828;
 }
 
 .lines {
-	padding: 8px 0;
+	padding: 0;
 	font-family: "SF Mono", Monaco, Menlo, Courier, monospace;
 	font-size: 12px;
-	line-height: 1.5;
+	line-height: 1.4;
 	background: var(--vscode-editor-background);
 }
 
 .line {
 	display: flex;
-	padding: 0 16px;
+	padding: 0 8px;
 	white-space: pre;
 }
 
@@ -116,13 +117,13 @@ button:hover {
 }
 
 .deletion {
-	background-color: rgba(220, 53, 69, 0.2);
-	color: #dc3545;
+	background-color: rgba(198, 40, 40, 0.15);
+	color: #c62828;
 }
 
 .addition {
-	background-color: rgba(40, 167, 69, 0.2);
-	color: #28a745;
+	background-color: rgba(46, 125, 50, 0.15);
+	color: #2e7d32;
 }
 
 .old-content,
@@ -141,11 +142,11 @@ button:hover {
 }
 
 .old-content::before {
-	background: #dc3545;
+	background: #c62828;
 }
 
 .new-content::before {
-	background: #28a745;
+	background: #2e7d32;
 }
 
 .context {
@@ -154,37 +155,37 @@ button:hover {
 
 /* Additions */
 .addition .line {
-	background: rgba(40, 167, 69, 0.1);
+	background: rgba(46, 125, 50, 0.08);
 }
 
 .addition .content {
-	color: #28a745;
+	color: #2e7d32;
 }
 
 /* Deletions */
 .deletion .line {
-	background: rgba(220, 53, 69, 0.1);
+	background: rgba(198, 40, 40, 0.08);
 }
 
 .deletion .content {
-	color: #dc3545;
+	color: #c62828;
 }
 
 /* Changes */
 .change .old-content .line {
-	background: rgba(220, 53, 69, 0.1);
+	background: rgba(198, 40, 40, 0.08);
 }
 
 .change .old-content .content {
-	color: #dc3545;
+	color: #c62828;
 }
 
 .change .new-content .line {
-	background: rgba(40, 167, 69, 0.1);
+	background: rgba(46, 125, 50, 0.08);
 }
 
 .change .new-content .content {
-	color: #28a745;
+	color: #2e7d32;
 }
 
 /* Separators */
@@ -221,4 +222,22 @@ button:hover {
 /* Empty line number placeholder */
 .line-number:empty::before {
 	content: " ";
+}
+
+#approveAll {
+	background: #2e7d32;
+	border-color: #2e7d32;
+}
+
+#denyAll {
+	background: #c62828;
+	border-color: #c62828;
+}
+
+#approveAll:hover {
+	background: #1b5e20;
+}
+
+#denyAll:hover {
+	background: #b71c1c;
 }
