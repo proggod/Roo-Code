@@ -147,13 +147,15 @@ export async function attemptCompletionTool(
 			console.log("************************* TASK COMPLETE *************************")
 			// Auto-open diff viewer (same behavior as chat button)
 			try {
+				console.log("[attemptCompletionTool] Attempting to auto-open diff viewer")
 				await cline.checkpointDiff({
 					ts: Date.now(),
 					previousCommitHash: undefined, // Diff against working tree
 					mode: "checkpoint",
 				})
+				console.log("[attemptCompletionTool] Successfully opened diff viewer")
 			} catch (error) {
-				console.warn("Failed to auto-open diff viewer:", error)
+				console.warn("[attemptCompletionTool] Failed to auto-open diff viewer:", error)
 			}
 
 			return

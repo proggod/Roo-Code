@@ -2503,9 +2503,11 @@ export class Cline extends EventEmitter<ClineEvents> {
 		previousCommitHash?: string
 		mode: "full" | "checkpoint"
 	}) {
-		console.log(`[Cline] ============================================`)
-		console.log(`[Cline] === CHECKPOINT DIFF METHOD CALLED DIRECTLY ===`)
-		console.log(`[Cline] ============================================`)
+		console.log(`[Cline] ==========================================================`)
+		console.log(
+			`[Cline] === CHECKPOINT DIFF CALLED === FROM: ${new Error().stack?.split("\\n")[2]?.trim() || "unknown"}`,
+		)
+		console.log(`[Cline] ==========================================================`)
 		console.log(`[Cline] checkpointDiff params:`, { ts, previousCommitHash, commitHash, mode })
 
 		const service = await this.getInitializedCheckpointService()
@@ -2526,6 +2528,11 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 			console.log(`[checkpointDiff] Diffing ${fromRef || "working tree"}..${toRef || "working tree"}`)
 			const changes = await service.getDiff({ from: fromRef, to: toRef })
+
+			console.log(
+				`[checkpointDiff] Got changes:`,
+				changes ? { length: changes.length, paths: changes.map((c) => c.paths.relative) } : "none",
+			)
 
 			if (!changes?.length) {
 				vscode.window.showInformationMessage("No changes found between current files and checkpoint.")
