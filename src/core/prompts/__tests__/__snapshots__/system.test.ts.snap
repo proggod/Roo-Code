@@ -394,7 +394,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT experimental tools should enable experimental tools when explicitly enabled 1`] = `
@@ -880,7 +882,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT experimental tools should selectively enable experimental tools 1`] = `
@@ -1330,7 +1334,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should exclude diff strategy tool description when diffEnabled is false 1`] = `
@@ -1727,7 +1733,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should exclude diff strategy tool description when diffEnabled is undefined 1`] = `
@@ -2124,7 +2132,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should explicitly handle undefined mcpHub 1`] = `
@@ -2521,7 +2531,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should handle different browser viewport sizes 1`] = `
@@ -2967,7 +2979,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should include MCP server info when mcpHub is provided 1`] = `
@@ -3432,7 +3446,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should include browser actions when supportsComputerUse is true 1`] = `
@@ -3878,7 +3894,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should include diff strategy tool description when diffEnabled is true 1`] = `
@@ -4371,7 +4389,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`SYSTEM_PROMPT should maintain consistent system prompt 1`] = `
@@ -4768,7 +4788,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`addCustomInstructions should combine all custom instructions 1`] = `
@@ -5354,7 +5376,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`addCustomInstructions should fall back to generic rules when mode-specific rules not found 1`] = `
@@ -5842,7 +5866,9 @@ Rules:
 # Rules from .clinerules-architect:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`addCustomInstructions should generate correct prompt for ask mode 1`] = `
@@ -6183,7 +6209,9 @@ Rules:
 # Rules from .clinerules-ask:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`addCustomInstructions should handle empty mode-specific instructions 1`] = `
@@ -6763,7 +6791,9 @@ Rules:
 # Rules from .clinerules-code:
 Mock mode-specific rules
 # Rules from .clinerules:
-Mock generic rules"
+Mock generic rules
+
+"
 `;
 
 exports[`addCustomInstructions should include custom instructions when provided 1`] = `

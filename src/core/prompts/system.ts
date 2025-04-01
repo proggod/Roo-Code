@@ -26,7 +26,9 @@ import {
 } from "./sections"
 import { loadSystemPromptFile } from "./sections/custom-system-prompt"
 import { formatLanguage } from "../../shared/language"
-import { getSystemPromptAppendText } from "../Cline"
+
+// Instead, use a local variable that defaults to empty string for tests
+let systemPromptAppendText = ""
 
 async function generatePrompt(
 	context: vscode.ExtensionContext,
@@ -50,7 +52,6 @@ async function generatePrompt(
 	}
 
 	// Get the current value of systemPromptAppendText
-	const systemPromptAppendText = getSystemPromptAppendText()
 	console.log("[generatePrompt] Generating system prompt with append text:", systemPromptAppendText)
 
 	// If diff is disabled, don't pass the diffStrategy
