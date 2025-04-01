@@ -255,6 +255,7 @@ type GlobalSettings = {
 				search_and_replace: boolean
 				insert_content: boolean
 				powerSteering: boolean
+				apiLogging: boolean
 		  }
 		| undefined
 	language?:

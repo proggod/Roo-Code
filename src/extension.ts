@@ -24,7 +24,9 @@ import { telemetryService } from "./services/telemetry/TelemetryService"
 import { TerminalRegistry } from "./integrations/terminal/TerminalRegistry"
 import { API } from "./exports/api"
 import { migrateSettings } from "./utils/migrateSettings"
-import { resetLogFile } from "./utils/api-logger"
+import { resetLogFile, setApiLoggingEnabled } from "./utils/api-logger"
+import { EXPERIMENT_IDS, experimentDefault } from "./shared/experiments"
+import { ExperimentId } from "./schemas"
 
 import { handleUri, registerCommands, registerCodeActions, registerTerminalActions } from "./activate"
 import { formatLanguage } from "./shared/language"
@@ -74,6 +76,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const provider = new ClineProvider(context, outputChannel, "sidebar")
 	telemetryService.setProvider(provider)
+
+	// Initialize API logging flag from experiment state
+	const experiments = context.globalState.get<Record<ExperimentId, boolean>>("experiments") ?? experimentDefault
+	const apiLoggingEnabled = experiments[EXPERIMENT_IDS.API_LOGGING] ?? false
+	setApiLoggingEnabled(apiLoggingEnabled)
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, provider, {

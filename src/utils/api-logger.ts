@@ -5,13 +5,26 @@ import { Anthropic } from "@anthropic-ai/sdk"
 import * as fs from "fs"
 import * as path from "path"
 import * as os from "os"
+import { EXPERIMENT_IDS } from "../shared/experiments"
 
 interface ApiRequestLog {
 	systemPrompt: string
 	messages: Anthropic.Messages.MessageParam[]
 }
 
+let apiLoggingEnabled = false
+
+export function setApiLoggingEnabled(enabled: boolean): void {
+	apiLoggingEnabled = enabled
+}
+
+export function isApiLoggingEnabled(): boolean {
+	return apiLoggingEnabled
+}
+
 export function resetLogFile(): void {
+	if (!isApiLoggingEnabled()) return
+
 	const homeDir = os.homedir()
 	const logDir = path.join(homeDir, ".roo_logs")
 	const logFile = path.join(logDir, "api_history.txt")
@@ -26,6 +39,8 @@ export function resetLogFile(): void {
 }
 
 export function logApiRequest(request: ApiRequestLog): void {
+	if (!isApiLoggingEnabled()) return
+
 	const homeDir = os.homedir()
 	const logDir = path.join(homeDir, ".roo_logs")
 	const logFile = path.join(logDir, "api_history.txt")

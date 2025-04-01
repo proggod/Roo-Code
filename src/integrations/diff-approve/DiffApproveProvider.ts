@@ -38,6 +38,7 @@ export class DiffApproveProvider {
 	private pendingBlocks: Set<number> = new Set()
 	private onBlockApprove?: (blockId: number, approved: boolean) => Promise<void>
 	private onAllBlocksProcessed?: () => Promise<void>
+	private hasCalledAllBlocksProcessed: boolean = false
 
 	constructor(extensionUri: vscode.Uri) {
 		this.extensionUri = extensionUri
@@ -77,7 +78,11 @@ export class DiffApproveProvider {
 			async (message: { type: string; blockId?: number }) => {
 				if (!this.diffContent) return
 
-				console.log(`[DiffApproveProvider] Received message: ${message.type}`, { blockId: message.blockId })
+				console.log(`[DiffApproveProvider] Received message: ${message.type}`, {
+					blockId: message.blockId,
+					pendingBlocksSize: this.pendingBlocks.size,
+					diffContentBlocksLength: this.diffContent.blocks.length,
+				})
 
 				switch (message.type) {
 					case "approve":
@@ -88,6 +93,10 @@ export class DiffApproveProvider {
 							if (blocks.length > 0) {
 								console.log(
 									`[DiffApproveProvider] Processing ${blocks.length} blocks in group for ${message.type}`,
+									{
+										blockIds: blocks.map((b) => b.id),
+										pendingBlocksSizeBefore: this.pendingBlocks.size,
+									},
 								)
 								// Process all blocks in the group
 								for (const block of blocks) {
@@ -106,8 +115,17 @@ export class DiffApproveProvider {
 										`[DiffApproveProvider] All blocks processed, calling onAllBlocksProcessed`,
 									)
 									try {
-										await this.onAllBlocksProcessed?.()
-										console.log(`[DiffApproveProvider] onAllBlocksProcessed completed successfully`)
+										if (!this.hasCalledAllBlocksProcessed) {
+											this.hasCalledAllBlocksProcessed = true
+											await this.onAllBlocksProcessed?.()
+											console.log(
+												`[DiffApproveProvider] onAllBlocksProcessed completed successfully`,
+											)
+										} else {
+											console.log(
+												`[DiffApproveProvider] onAllBlocksProcessed already called, skipping`,
+											)
+										}
 									} catch (error) {
 										console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed:`, error)
 									}
@@ -135,10 +153,17 @@ export class DiffApproveProvider {
 							`[DiffApproveProvider] All blocks processed in ${isApprove ? "approve" : "deny"} all, calling onAllBlocksProcessed`,
 						)
 						try {
-							await this.onAllBlocksProcessed?.()
-							console.log(
-								`[DiffApproveProvider] onAllBlocksProcessed completed successfully for ${isApprove ? "approve" : "deny"} all`,
-							)
+							if (!this.hasCalledAllBlocksProcessed) {
+								this.hasCalledAllBlocksProcessed = true
+								await this.onAllBlocksProcessed?.()
+								console.log(
+									`[DiffApproveProvider] onAllBlocksProcessed completed successfully for ${isApprove ? "approve" : "deny"} all`,
+								)
+							} else {
+								console.log(
+									`[DiffApproveProvider] onAllBlocksProcessed already called for ${isApprove ? "approve" : "deny"} all, skipping`,
+								)
+							}
 						} catch (error) {
 							console.error(
 								`[DiffApproveProvider] Error in onAllBlocksProcessed for ${isApprove ? "approve" : "deny"} all:`,
@@ -163,10 +188,20 @@ export class DiffApproveProvider {
 				if (this.pendingBlocks.size > 0) {
 					console.log(`[DiffApproveProvider] Panel closed with pending blocks, calling onAllBlocksProcessed`)
 					try {
-						this.onAllBlocksProcessed?.().catch((error) => {
-							console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed on panel close:`, error)
-						})
-						console.log(`[DiffApproveProvider] onAllBlocksProcessed called on panel close`)
+						if (!this.hasCalledAllBlocksProcessed) {
+							this.hasCalledAllBlocksProcessed = true
+							this.onAllBlocksProcessed?.().catch((error) => {
+								console.error(
+									`[DiffApproveProvider] Error in onAllBlocksProcessed on panel close:`,
+									error,
+								)
+							})
+							console.log(`[DiffApproveProvider] onAllBlocksProcessed called on panel close`)
+						} else {
+							console.log(
+								`[DiffApproveProvider] onAllBlocksProcessed already called, skipping call on panel close`,
+							)
+						}
 					} catch (error) {
 						console.error(`[DiffApproveProvider] Error calling onAllBlocksProcessed on panel close:`, error)
 					}
@@ -472,15 +507,15 @@ export class DiffApproveProvider {
 
 					const actions = isPending
 						? `<div class="actions">
-                           <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change #${index + 1}</button>
-                           <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change #${index + 1}</button>
+                           <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change</button>
+                           <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change</button>
                        </div>`
 						: ""
 
 					return `
                     <div class="diff-block change" data-block-id="${block.id}">
                         <div class="block-header">
-                            <span>Change ${index + 1}</span>
+                            <span>Change</span>
                             ${actions}
                         </div>
                         <div class="block-content">
@@ -501,15 +536,15 @@ export class DiffApproveProvider {
 				// Single block handling (no related blocks)
 				const actions = isPending
 					? `<div class="actions">
-                       <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change #${index + 1}</button>
-                       <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change #${index + 1}</button>
+                       <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change</button>
+                       <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change</button>
                    </div>`
 					: ""
 
 				return `
                 <div class="${blockClass}" data-block-id="${block.id}">
                     <div class="block-header">
-                        <span>Change ${index + 1}</span>
+                        <span>Change</span>
                         ${actions}
                     </div>
                     <div class="block-content">
@@ -558,7 +593,11 @@ export class DiffApproveProvider {
 	}
 
 	public dispose(): void {
-		console.log(`[DiffApproveProvider] dispose called, cleaning up resources`)
+		console.log(`[DiffApproveProvider] dispose called, cleaning up resources`, {
+			pendingBlocksSize: this.pendingBlocks.size,
+			currentPanelExists: !!DiffApproveProvider.currentPanel,
+			hasCalledAllBlocksProcessed: this.hasCalledAllBlocksProcessed,
+		})
 
 		// Ensure onAllBlocksProcessed is called whenever we dispose
 		if (this.pendingBlocks.size > 0) {
@@ -566,11 +605,45 @@ export class DiffApproveProvider {
 				`[DiffApproveProvider] dispose: Calling onAllBlocksProcessed for ${this.pendingBlocks.size} remaining blocks`,
 			)
 			try {
-				this.onAllBlocksProcessed?.().catch((error) => {
-					console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed during dispose:`, error)
-				})
+				if (!this.hasCalledAllBlocksProcessed) {
+					this.hasCalledAllBlocksProcessed = true
+					this.onAllBlocksProcessed?.().catch((error) => {
+						console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed during dispose:`, error)
+					})
+				} else {
+					console.log(
+						`[DiffApproveProvider] dispose: onAllBlocksProcessed already called, skipping call for remaining blocks`,
+					)
+				}
 			} catch (error) {
 				console.error(`[DiffApproveProvider] Error calling onAllBlocksProcessed during dispose:`, error)
+			}
+		} else {
+			console.log(
+				`[DiffApproveProvider] dispose: No pending blocks, checking if onAllBlocksProcessed callback exists`,
+			)
+			if (this.onAllBlocksProcessed && !this.hasCalledAllBlocksProcessed) {
+				console.log(
+					`[DiffApproveProvider] dispose: onAllBlocksProcessed callback exists and hasn't been called yet, calling it`,
+				)
+				try {
+					this.hasCalledAllBlocksProcessed = true
+					this.onAllBlocksProcessed().catch((error) => {
+						console.error(
+							`[DiffApproveProvider] Error in onAllBlocksProcessed during dispose with no pending blocks:`,
+							error,
+						)
+					})
+				} catch (error) {
+					console.error(
+						`[DiffApproveProvider] Error calling onAllBlocksProcessed during dispose with no pending blocks:`,
+						error,
+					)
+				}
+			} else {
+				console.log(
+					`[DiffApproveProvider] dispose: ${this.onAllBlocksProcessed ? "onAllBlocksProcessed already called" : "No onAllBlocksProcessed callback exists"}`,
+				)
 			}
 		}
 
