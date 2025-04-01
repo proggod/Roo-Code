@@ -515,7 +515,6 @@ export class DiffApproveProvider {
 					return `
                     <div class="diff-block change" data-block-id="${block.id}">
                         <div class="block-header">
-                            <span>Change</span>
                             ${actions}
                         </div>
                         <div class="block-content">
@@ -544,7 +543,6 @@ export class DiffApproveProvider {
 				return `
                 <div class="${blockClass}" data-block-id="${block.id}">
                     <div class="block-header">
-                        <span>Change</span>
                         ${actions}
                     </div>
                     <div class="block-content">

@@ -40,11 +40,8 @@ jest.mock("../../../services/browser/BrowserSession", () => ({
 
 // Mock browserDiscovery
 jest.mock("../../../services/browser/browserDiscovery", () => ({
-	discoverChromeHostUrl: jest.fn().mockImplementation(async () => {
+	discoverChromeInstances: jest.fn().mockImplementation(async () => {
 		return "http://localhost:9222"
-	}),
-	tryChromeHostUrl: jest.fn().mockImplementation(async (url) => {
-		return url === "http://localhost:9222"
 	}),
 }))
 
@@ -378,7 +375,7 @@ describe("ClineProvider", () => {
 
 		// Verify Content Security Policy contains the necessary PostHog domains
 		expect(mockWebviewView.webview.html).toContain(
-			"connect-src https://openrouter.ai https://api.requesty.ai https://us.i.posthog.com https://us-assets.i.posthog.com;",
+			"connect-src https://openrouter.ai https://us.i.posthog.com https://us-assets.i.posthog.com;",
 		)
 		expect(mockWebviewView.webview.html).toContain("script-src 'nonce-")
 	})
@@ -388,6 +385,7 @@ describe("ClineProvider", () => {
 
 		const mockState: ExtensionState = {
 			version: "1.0.0",
+			osInfo: "unix",
 			clineMessages: [],
 			taskHistory: [],
 			shouldShowAnnouncement: false,
@@ -632,7 +630,7 @@ describe("ClineProvider", () => {
 			setModeConfig: jest.fn(),
 		} as any
 
-		provider.setValue("currentApiConfigName", "current-config")
+		provider.updateGlobalState("currentApiConfigName", "current-config")
 
 		// Switch to architect mode
 		await messageHandler({ type: "mode", text: "architect" })
@@ -761,7 +759,7 @@ describe("ClineProvider", () => {
 			},
 		}
 
-		provider.setValue("customModePrompts", existingPrompts)
+		provider.updateGlobalState("customModePrompts", existingPrompts)
 
 		// Test updating a prompt
 		await messageHandler({
@@ -1916,9 +1914,9 @@ describe("ClineProvider", () => {
 				type: "testBrowserConnection",
 			})
 
-			// Verify discoverChromeHostUrl was called
-			const { discoverChromeHostUrl } = require("../../../services/browser/browserDiscovery")
-			expect(discoverChromeHostUrl).toHaveBeenCalled()
+			// Verify discoverChromeInstances was called
+			const { discoverChromeInstances } = require("../../../services/browser/browserDiscovery")
+			expect(discoverChromeInstances).toHaveBeenCalled()
 
 			// Verify postMessage was called with success result
 			expect(mockPostMessage).toHaveBeenCalledWith(
@@ -1926,6 +1924,77 @@ describe("ClineProvider", () => {
 					type: "browserConnectionResult",
 					success: true,
 					text: expect.stringContaining("Auto-discovered and tested connection to Chrome"),
+				}),
+			)
+		})
+
+		test("handles discoverBrowser message", async () => {
+			// Get the message handler
+			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0]
+
+			// Test browser discovery
+			await messageHandler({
+				type: "discoverBrowser",
+			})
+
+			// Verify discoverChromeInstances was called
+			const { discoverChromeInstances } = require("../../../services/browser/browserDiscovery")
+			expect(discoverChromeInstances).toHaveBeenCalled()
+
+			// Verify postMessage was called with success result
+			expect(mockPostMessage).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "browserConnectionResult",
+					success: true,
+					text: expect.stringContaining("Successfully discovered and connected to Chrome"),
+				}),
+			)
+		})
+
+		test("handles errors during browser discovery", async () => {
+			// Mock discoverChromeInstances to throw an error
+			const { discoverChromeInstances } = require("../../../services/browser/browserDiscovery")
+			discoverChromeInstances.mockImplementationOnce(() => {
+				throw new Error("Discovery error")
+			})
+
+			// Get the message handler
+			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0]
+
+			// Test browser discovery with error
+			await messageHandler({
+				type: "discoverBrowser",
+			})
+
+			// Verify postMessage was called with error result
+			expect(mockPostMessage).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "browserConnectionResult",
+					success: false,
+					text: expect.stringContaining("Error discovering browser"),
+				}),
+			)
+		})
+
+		test("handles case when no browsers are discovered", async () => {
+			// Mock discoverChromeInstances to return null (no browsers found)
+			const { discoverChromeInstances } = require("../../../services/browser/browserDiscovery")
+			discoverChromeInstances.mockImplementationOnce(() => null)
+
+			// Get the message handler
+			const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0]
+
+			// Test browser discovery with no browsers found
+			await messageHandler({
+				type: "discoverBrowser",
+			})
+
+			// Verify postMessage was called with failure result
+			expect(mockPostMessage).toHaveBeenCalledWith(
+				expect.objectContaining({
+					type: "browserConnectionResult",
+					success: false,
+					text: expect.stringContaining("No Chrome instances found"),
 				}),
 			)
 		})
@@ -2028,7 +2097,7 @@ describe("Project MCP Settings", () => {
 		await messageHandler({ type: "openProjectMcpSettings" })
 
 		// Verify error message was shown
-		expect(vscode.window.showErrorMessage).toHaveBeenCalledWith("errors.no_workspace")
+		expect(vscode.window.showErrorMessage).toHaveBeenCalledWith("no_workspace")
 	})
 
 	test.skip("handles openProjectMcpSettings file creation error", async () => {
@@ -2088,19 +2157,19 @@ describe.skip("ContextProxy integration", () => {
 	})
 
 	test("updateGlobalState uses contextProxy", async () => {
-		await provider.setValue("currentApiConfigName", "testValue")
+		await provider.updateGlobalState("currentApiConfigName", "testValue")
 		expect(mockContextProxy.updateGlobalState).toHaveBeenCalledWith("currentApiConfigName", "testValue")
 	})
 
 	test("getGlobalState uses contextProxy", async () => {
 		mockContextProxy.getGlobalState.mockResolvedValueOnce("testValue")
-		const result = await provider.getValue("currentApiConfigName")
+		const result = await provider.getGlobalState("currentApiConfigName")
 		expect(mockContextProxy.getGlobalState).toHaveBeenCalledWith("currentApiConfigName")
 		expect(result).toBe("testValue")
 	})
 
 	test("storeSecret uses contextProxy", async () => {
-		await provider.setValue("apiKey", "test-secret")
+		await provider.storeSecret("apiKey", "test-secret")
 		expect(mockContextProxy.storeSecret).toHaveBeenCalledWith("apiKey", "test-secret")
 	})
 

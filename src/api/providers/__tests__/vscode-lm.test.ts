@@ -4,58 +4,77 @@ import { ApiHandlerOptions } from "../../../shared/api"
 import { Anthropic } from "@anthropic-ai/sdk"
 
 // Mock vscode namespace
-jest.mock("vscode", () => {
-	class MockLanguageModelTextPart {
+jest.mock("vscode", () => ({
+	...jest.requireActual("vscode"),
+	workspace: {
+		onDidChangeConfiguration: jest.fn((callback) => ({
+			dispose: jest.fn(),
+		})),
+		getConfiguration: jest.fn().mockReturnValue({
+			get: jest.fn(),
+			update: jest.fn(),
+		}),
+	},
+	CancellationTokenSource: jest.fn(() => ({
+		token: {
+			isCancellationRequested: false,
+			onCancellationRequested: jest.fn(),
+		},
+		cancel: jest.fn(),
+		dispose: jest.fn(),
+	})),
+	LanguageModelTextPart: class MockLanguageModelTextPart {
 		type = "text"
 		constructor(public value: string) {}
-	}
-
-	class MockLanguageModelToolCallPart {
+	},
+	LanguageModelToolCallPart: class MockLanguageModelToolCallPart {
 		type = "tool_call"
 		constructor(
 			public callId: string,
 			public name: string,
 			public input: any,
 		) {}
-	}
-
-	return {
-		workspace: {
-			onDidChangeConfiguration: jest.fn((callback) => ({
-				dispose: jest.fn(),
-			})),
-		},
-		CancellationTokenSource: jest.fn(() => ({
-			token: {
-				isCancellationRequested: false,
-				onCancellationRequested: jest.fn(),
-			},
-			cancel: jest.fn(),
+	},
+	LanguageModelChatMessage: {
+		System: jest.fn((text) => ({ role: "system", content: text })),
+		User: jest.fn((text) => ({ role: "user", content: text })),
+		Assistant: jest.fn((text) => ({ role: "assistant", content: text })),
+	},
+	CancellationError: class CancellationError extends Error {
+		constructor() {
+			super("Operation cancelled")
+			this.name = "CancellationError"
+		}
+	},
+	lm: {
+		countTokens: jest.fn().mockResolvedValue(10),
+		selectChatModels: jest.fn(),
+	},
+	window: {
+		createTextEditorDecorationType: jest.fn().mockReturnValue({
+			backgroundColor: "rgba(255, 255, 0, 0.1)",
+			opacity: "0.4",
+			isWholeLine: true,
+		}),
+		showInformationMessage: jest.fn(),
+		showErrorMessage: jest.fn(),
+		createOutputChannel: jest.fn().mockReturnValue({
+			appendLine: jest.fn(),
+			clear: jest.fn(),
 			dispose: jest.fn(),
-		})),
-		CancellationError: class CancellationError extends Error {
-			constructor() {
-				super("Operation cancelled")
-				this.name = "CancellationError"
-			}
-		},
-		LanguageModelChatMessage: {
-			Assistant: jest.fn((content) => ({
-				role: "assistant",
-				content: Array.isArray(content) ? content : [new MockLanguageModelTextPart(content)],
-			})),
-			User: jest.fn((content) => ({
-				role: "user",
-				content: Array.isArray(content) ? content : [new MockLanguageModelTextPart(content)],
-			})),
-		},
-		LanguageModelTextPart: MockLanguageModelTextPart,
-		LanguageModelToolCallPart: MockLanguageModelToolCallPart,
-		lm: {
-			selectChatModels: jest.fn(),
-		},
-	}
-})
+		}),
+	},
+	EventEmitter: jest.fn(),
+	Uri: {
+		file: jest.fn(),
+		parse: jest.fn(),
+	},
+	ExtensionContext: jest.fn(),
+	OutputChannel: jest.fn(),
+	WebviewView: jest.fn(),
+	WebviewPanel: jest.fn(),
+	Disposable: jest.fn(),
+}))
 
 const mockLanguageModelChat = {
 	id: "test-model",
