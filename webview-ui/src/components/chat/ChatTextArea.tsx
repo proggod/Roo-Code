@@ -1088,6 +1088,22 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							onClick={handleEnhancePrompt}
 						/>
 						<IconButton
+							iconClass="codicon-git-compare"
+							title={t("chat:viewGitDiff")}
+							disabled={textAreaDisabled}
+							onClick={() => {
+								console.log("Sending checkpointDiffWeb message from webview")
+								vscode.postMessage({
+									type: "checkpointDiffWeb",
+									payload: {
+										ts: Date.now(),
+										previousCommitHash: undefined, // Explicitly set to undefined to diff against working tree
+										mode: "checkpoint",
+									},
+								})
+							}}
+						/>
+						<IconButton
 							iconClass="codicon-device-camera"
 							title={t("chat:addImages")}
 							disabled={shouldDisableImages}

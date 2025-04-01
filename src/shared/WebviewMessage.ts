@@ -104,7 +104,7 @@ export interface WebviewMessage {
 		| "deleteCustomMode"
 		| "setopenAiCustomModelInfo"
 		| "openCustomModesSettings"
-		| "checkpointDiff"
+		| "checkpointDiffWeb"
 		| "checkpointRestore"
 		| "deleteMcpServer"
 		| "maxOpenTabsContext"
@@ -121,6 +121,10 @@ export interface WebviewMessage {
 		| "maxReadFileLine"
 		| "searchFiles"
 		| "toggleApiConfigPin"
+		| "updateSystemPromptAppendText"
+		| "getSystemPromptAppendText"
+		| "systemPromptAppendText"
+		| "checkpointDiff"
 	text?: string
 	disabled?: boolean
 	askResponse?: ClineAskResponse
@@ -151,7 +155,7 @@ export interface WebviewMessage {
 export const checkoutDiffPayloadSchema = z.object({
 	ts: z.number(),
 	previousCommitHash: z.string().optional(),
-	commitHash: z.string(),
+	commitHash: z.string().optional(),
 	mode: z.enum(["full", "checkpoint"]),
 })
 

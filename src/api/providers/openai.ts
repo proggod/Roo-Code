@@ -15,7 +15,12 @@ import { convertToSimpleMessages } from "../transform/simple-format"
 import { ApiStream, ApiStreamUsageChunk } from "../transform/stream"
 import { BaseProvider } from "./base-provider"
 import { XmlMatcher } from "../../utils/xml-matcher"
-import { DEEP_SEEK_DEFAULT_TEMPERATURE } from "./constants"
+
+
+
+import { logApiRequest } from "../../utils/api-logger"
+
+const DEEP_SEEK_DEFAULT_TEMPERATURE = 0.6
 
 export const defaultHeaders = {
 	"HTTP-Referer": "https://github.com/RooVetGit/Roo-Cline",
@@ -137,10 +142,17 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 				requestOptions.max_tokens = modelInfo.maxTokens
 			}
 
+
+			logApiRequest({
+				systemPrompt,
+				messages,
+			})
+
 			const stream = await this.client.chat.completions.create(
 				requestOptions,
 				isAzureAiInference ? { path: AZURE_AI_INFERENCE_PATH } : {},
 			)
+
 
 			const matcher = new XmlMatcher(
 				"think",

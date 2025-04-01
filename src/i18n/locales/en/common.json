@@ -88,6 +88,6 @@
 	},
 	"input": {
 		"task_prompt": "What should Roo do?",
-		"task_placeholder": "Type your task here"
+		"task_placeholder": "Type your task here, this is sent with EVERY request to the model..."
 	}
 }

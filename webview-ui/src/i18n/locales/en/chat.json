@@ -73,7 +73,7 @@
 	"addImages": "Add images to message",
 	"sendMessage": "Send message",
 	"typeMessage": "Type a message...",
-	"typeTask": "Type your task here...",
+	"typeTask": "Type your task here, this is sent with EVERY request to the model...",
 	"addContext": "@ to add context, / to switch modes",
 	"dragFiles": "hold shift to drag in files",
 	"dragFilesImages": "hold shift to drag in files/images",
