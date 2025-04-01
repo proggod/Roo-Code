@@ -1335,6 +1335,7 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 			await provider.postStateToWebview()
 			break
 		}
+
 		case "checkpointDiffWeb": {
 			console.log("[webviewMessageHandler] Received checkpointDiffWeb message", message.payload)
 			const diffWebResult = checkoutDiffPayloadSchema.safeParse(message.payload)
