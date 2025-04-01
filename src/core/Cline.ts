@@ -2073,9 +2073,6 @@ export class Cline extends EventEmitter<ClineEvents> {
 			// 2. ToolResultBlockParam's content/context text arrays if it contains "<feedback>" (see formatToolDeniedFeedback, attemptCompletion, executeCommand, and consecutiveMistakeCount >= 3) or "<answer>" (see askFollowupQuestion), we place all user generated content in these tags so they can effectively be used as markers for when we should parse mentions)
 			Promise.all(
 				userContent.map(async (block) => {
-					const state = (await this.providerRef.deref()?.getState()) || {}
-					const osInfo = (state as { osInfo?: string }).osInfo || "unix"
-
 					const shouldProcessMentions = (text: string) =>
 						text.includes("<task>") || text.includes("<feedback>")
 
@@ -2083,16 +2080,19 @@ export class Cline extends EventEmitter<ClineEvents> {
 						if (shouldProcessMentions(block.text)) {
 							return {
 								...block,
-								text: await parseMentions(block.text, this.cwd, this.urlContentFetcher, osInfo),
+								text: await parseMentions(block.text, this.cwd, this.urlContentFetcher),
 							}
 						}
 						return block
 					} else if (block.type === "tool_result") {
-						if (typeof block.content === "string" && shouldProcessMentions(block.content)) {
-							return {
-								...block,
-								content: await parseMentions(block.content, this.cwd, this.urlContentFetcher, osInfo),
+						if (typeof block.content === "string") {
+							if (shouldProcessMentions(block.content)) {
+								return {
+									...block,
+									content: await parseMentions(block.content, this.cwd, this.urlContentFetcher),
+								}
 							}
+							return block
 						} else if (Array.isArray(block.content)) {
 							const parsedContent = await Promise.all(
 								block.content.map(async (contentBlock) => {
@@ -2103,7 +2103,6 @@ export class Cline extends EventEmitter<ClineEvents> {
 												contentBlock.text,
 												this.cwd,
 												this.urlContentFetcher,
-												osInfo,
 											),
 										}
 									}
@@ -2498,8 +2497,8 @@ export class Cline extends EventEmitter<ClineEvents> {
 		mode,
 	}: {
 		ts: number
-		commitHash?: string
 		previousCommitHash?: string
+		commitHash?: string
 		mode: "full" | "checkpoint"
 	}) {
 		console.warn("[TASK_COMPLETE_DEBUG] CHECKPOINT DIFF METHOD CALLED! THIS SHOULD BE VISIBLE!")
@@ -2732,13 +2731,11 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 		telemetryService.captureCheckpointCreated(this.taskId)
 
-		try {
-			// Wait for the checkpoint to be saved
-			await service.saveCheckpoint(`Task: ${this.taskId}, Time: ${Date.now()}`)
-		} catch (err) {
+		// Start the checkpoint process in the background.
+		service.saveCheckpoint(`Task: ${this.taskId}, Time: ${Date.now()}`).catch((err) => {
 			console.error("[Cline#checkpointSave] caught unexpected error, disabling checkpoints", err)
 			this.enableCheckpoints = false
-		}
+		})
 	}
 
 	public async checkpointRestore({
@@ -2820,8 +2817,4 @@ export class Cline extends EventEmitter<ClineEvents> {
 		}
 		return undefined
 	}
-}
-
-function escapeRegExp(string: string): string {
-	return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
