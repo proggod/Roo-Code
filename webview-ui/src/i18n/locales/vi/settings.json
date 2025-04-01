@@ -340,6 +340,10 @@
 		"MULTI_SEARCH_AND_REPLACE": {
 			"name": "Sử dụng công cụ diff đa khối thử nghiệm",
 			"description": "Khi được bật, Roo sẽ sử dụng công cụ diff đa khối. Điều này sẽ cố gắng cập nhật nhiều khối mã trong tệp trong một yêu cầu."
+		},
+		"API_LOGGING": {
+			"name": "Ghi nhật ký API",
+			"description": "Bật ghi nhật ký chi tiết về yêu cầu và phản hồi API cho mục đích gỡ lỗi. Tính năng này có thể ảnh hưởng đến hiệu suất và chỉ nên được bật khi cần thiết."
 		}
 	},
 	"temperature": {

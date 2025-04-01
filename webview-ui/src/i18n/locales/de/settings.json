@@ -340,6 +340,10 @@
 		"MULTI_SEARCH_AND_REPLACE": {
 			"name": "Experimentelles Multi-Block-Diff-Werkzeug verwenden",
 			"description": "Wenn aktiviert, verwendet Roo das Multi-Block-Diff-Werkzeug. Dies versucht, mehrere Codeblöcke in der Datei in einer Anfrage zu aktualisieren."
+		},
+		"API_LOGGING": {
+			"name": "API-Protokollierung",
+			"description": "Aktiviert die detaillierte Protokollierung von API-Anfragen und -Antworten zu Debugging-Zwecken. Diese Funktion kann die Leistung beeinträchtigen und sollte nur bei Bedarf aktiviert werden."
 		}
 	},
 	"temperature": {

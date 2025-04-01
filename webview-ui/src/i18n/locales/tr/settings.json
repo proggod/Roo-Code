@@ -338,8 +338,12 @@
 			"description": "Etkinleştirildiğinde, Roo modele geçerli mod tanımının ayrıntılarını daha sık hatırlatacaktır. Bu, rol tanımlarına ve özel talimatlara daha güçlü uyum sağlayacak, ancak mesaj başına daha fazla token kullanacaktır."
 		},
 		"MULTI_SEARCH_AND_REPLACE": {
-			"name": "Deneysel çoklu blok diff aracını kullan",
-			"description": "Etkinleştirildiğinde, Roo çoklu blok diff aracını kullanacaktır. Bu, tek bir istekte dosyadaki birden fazla kod bloğunu güncellemeye çalışacaktır."
+			"name": "Deneysel çoklu blok fark aracını kullan",
+			"description": "Etkinleştirildiğinde, Roo çoklu blok fark aracını kullanır. Bu, tek bir istekte dosyadaki birden çok kod bloğunu güncellemeye çalışır."
+		},
+		"API_LOGGING": {
+			"name": "API Günlükleme",
+			"description": "Hata ayıklama amaçları için API isteklerinin ve yanıtlarının ayrıntılı günlüklenmesini etkinleştirir. Bu özellik performansı etkileyebilir ve yalnızca gerektiğinde etkinleştirilmelidir."
 		}
 	},
 	"temperature": {

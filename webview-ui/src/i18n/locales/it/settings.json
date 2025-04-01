@@ -340,6 +340,10 @@
 		"MULTI_SEARCH_AND_REPLACE": {
 			"name": "Usa strumento diff multi-blocco sperimentale",
 			"description": "Quando abilitato, Roo utilizzerà lo strumento diff multi-blocco. Questo tenterà di aggiornare più blocchi di codice nel file in una singola richiesta."
+		},
+		"API_LOGGING": {
+			"name": "Registrazione API",
+			"description": "Abilita la registrazione dettagliata delle richieste e risposte API per scopi di debug. Questa funzionalità potrebbe influire sulle prestazioni e dovrebbe essere abilitata solo quando necessario."
 		}
 	},
 	"temperature": {

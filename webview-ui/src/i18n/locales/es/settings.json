@@ -338,8 +338,12 @@
 			"description": "Cuando está habilitado, Roo recordará al modelo los detalles de su definición de modo actual con más frecuencia. Esto llevará a una mayor adherencia a las definiciones de roles e instrucciones personalizadas, pero usará más tokens por mensaje."
 		},
 		"MULTI_SEARCH_AND_REPLACE": {
-			"name": "Usar herramienta experimental de diff de bloques múltiples",
-			"description": "Cuando está habilitado, Roo usará la herramienta de diff de bloques múltiples. Esto intentará actualizar múltiples bloques de código en el archivo en una sola solicitud."
+			"name": "Usar herramienta experimental de diferencia de múltiples bloques",
+			"description": "Cuando está habilitado, Roo utilizará la herramienta de diferencia de múltiples bloques. Esto intentará actualizar múltiples bloques de código en el archivo en una sola solicitud."
+		},
+		"API_LOGGING": {
+			"name": "Registro de API",
+			"description": "Habilita el registro detallado de solicitudes y respuestas de API para fines de depuración. Esta función puede afectar al rendimiento y solo debe habilitarse cuando sea necesario."
 		}
 	},
 	"temperature": {

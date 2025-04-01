@@ -340,6 +340,10 @@
 		"MULTI_SEARCH_AND_REPLACE": {
 			"name": "使用实验性多块差异工具",
 			"description": "启用后，Roo 将使用多块差异工具。这将尝试在一个请求中更新文件中的多个代码块。"
+		},
+		"API_LOGGING": {
+			"name": "API 日志记录",
+			"description": "启用 API 请求和响应的详细日志记录，用于调试目的。此功能可能会影响性能，应仅在需要时启用。"
 		}
 	},
 	"temperature": {

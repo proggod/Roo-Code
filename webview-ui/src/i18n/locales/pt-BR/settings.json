@@ -338,8 +338,12 @@
 			"description": "Quando ativado, o Roo lembrará o modelo sobre os detalhes da sua definição de modo atual com mais frequência. Isso levará a uma adesão mais forte às definições de função e instruções personalizadas, mas usará mais tokens por mensagem."
 		},
 		"MULTI_SEARCH_AND_REPLACE": {
-			"name": "Usar ferramenta diff de múltiplos blocos experimental",
-			"description": "Quando ativado, o Roo usará a ferramenta diff de múltiplos blocos. Isso tentará atualizar vários blocos de código no arquivo em uma única solicitação."
+			"name": "Usar ferramenta experimental de diff multi-bloco",
+			"description": "Quando ativado, o Roo usará a ferramenta de diff multi-bloco. Isso tentará atualizar múltiplos blocos de código no arquivo em uma única solicitação."
+		},
+		"API_LOGGING": {
+			"name": "Registro de API",
+			"description": "Ativa o registro detalhado de solicitações e respostas da API para fins de depuração. Este recurso pode afetar o desempenho e deve ser ativado apenas quando necessário."
 		}
 	},
 	"temperature": {

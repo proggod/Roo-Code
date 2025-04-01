@@ -338,8 +338,12 @@
 			"description": "此模式會更頻繁地提醒模型其角色定義"
 		},
 		"MULTI_SEARCH_AND_REPLACE": {
-			"name": "使用實驗性多區塊 diff 工具",
-			"description": "單次請求更新檔案中的多個程式區塊"
+			"name": "使用實驗性多區塊差異工具",
+			"description": "啟用後，Roo 將使用多區塊差異工具。這將嘗試在一個請求中更新檔案中的多個程式碼區塊。"
+		},
+		"API_LOGGING": {
+			"name": "API 日誌記錄",
+			"description": "啟用 API 請求和回應的詳細日誌記錄，用於除錯目的。此功能可能會影響效能，應僅在需要時啟用。"
 		}
 	},
 	"temperature": {

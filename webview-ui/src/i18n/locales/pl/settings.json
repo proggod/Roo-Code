@@ -338,8 +338,12 @@
 			"description": "Po włączeniu, Roo będzie częściej przypominać modelowi o szczegółach jego bieżącej definicji trybu. Doprowadzi to do silniejszego przestrzegania definicji ról i niestandardowych instrukcji, ale będzie używać więcej tokenów na wiadomość."
 		},
 		"MULTI_SEARCH_AND_REPLACE": {
-			"name": "Użyj eksperymentalnego narzędzia diff wieloblokowego",
-			"description": "Po włączeniu, Roo użyje narzędzia diff wieloblokowego. Spróbuje to zaktualizować wiele bloków kodu w pliku w jednym żądaniu."
+			"name": "Użyj eksperymentalnego narzędzia wieloblokowej różnicy",
+			"description": "Po włączeniu Roo będzie używać narzędzia wieloblokowej różnicy. Spróbuje zaktualizować wiele bloków kodu w pliku w jednym żądaniu."
+		},
+		"API_LOGGING": {
+			"name": "Rejestrowanie API",
+			"description": "Włącz szczegółowe rejestrowanie żądań i odpowiedzi API do celów debugowania. Ta funkcja może wpłynąć na wydajność i powinna być włączana tylko wtedy, gdy jest to konieczne."
 		}
 	},
 	"temperature": {
