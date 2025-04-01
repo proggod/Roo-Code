@@ -385,7 +385,6 @@ describe("ClineProvider", () => {
 
 		const mockState: ExtensionState = {
 			version: "1.0.0",
-			osInfo: "unix",
 			clineMessages: [],
 			taskHistory: [],
 			shouldShowAnnouncement: false,
@@ -2170,16 +2169,10 @@ describe.skip("ContextProxy integration", () => {
 		expect(result).toBe("testValue")
 	})
 
-	test("storeSecret uses contextProxy", async () => {
-		await provider.storeSecret("apiKey", "test-secret")
-		expect(mockContextProxy.storeSecret).toHaveBeenCalledWith("apiKey", "test-secret")
-	})
-
 	test("contextProxy methods are available", () => {
 		// Verify the contextProxy has all the required methods
 		expect(mockContextProxy.getGlobalState).toBeDefined()
 		expect(mockContextProxy.updateGlobalState).toBeDefined()
-		expect(mockContextProxy.storeSecret).toBeDefined()
 		expect(mockContextProxy.setValue).toBeDefined()
 		expect(mockContextProxy.setValues).toBeDefined()
 	})
