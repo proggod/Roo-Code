@@ -2547,6 +2547,7 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 			// Track number of active diff views to know when all are closed
 			let activeViews = changes.length
+			console.log(`[checkpointDiff] Starting with ${activeViews} active views`)
 
 			// Show each change in the diff approve view
 			for (const change of changes) {
@@ -2618,11 +2619,16 @@ export class Cline extends EventEmitter<ClineEvents> {
 							await vscode.workspace.fs.delete(oldVersionUri)
 
 							// Decrement active views counter
+							console.log(
+								`[checkpointDiff] Decrementing activeViews from ${activeViews} to ${activeViews - 1}`,
+							)
 							activeViews--
 
 							// When all views are closed, reset the verified checkpoint
 							if (activeViews === 0) {
-								console.log("[checkpointDiff] All diff views closed, resetting verified checkpoint")
+								console.log(
+									"✅✅✅ [checkpointDiff] All diff views closed, resetting verified checkpoint ✅✅✅",
+								)
 								const service = this.getCheckpointService()
 								if (service) {
 									// First reset the verified checkpoint

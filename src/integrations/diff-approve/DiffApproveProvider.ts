@@ -77,6 +77,8 @@ export class DiffApproveProvider {
 			async (message: { type: string; blockId?: number }) => {
 				if (!this.diffContent) return
 
+				console.log(`[DiffApproveProvider] Received message: ${message.type}`, { blockId: message.blockId })
+
 				switch (message.type) {
 					case "approve":
 					case "deny": {
@@ -84,6 +86,9 @@ export class DiffApproveProvider {
 							// Find the group containing this block
 							const blocks = this.findRelatedBlocks(message.blockId)
 							if (blocks.length > 0) {
+								console.log(
+									`[DiffApproveProvider] Processing ${blocks.length} blocks in group for ${message.type}`,
+								)
 								// Process all blocks in the group
 								for (const block of blocks) {
 									await this.onBlockApprove?.(block.id, message.type === "approve")
@@ -97,7 +102,15 @@ export class DiffApproveProvider {
 								})
 
 								if (this.pendingBlocks.size === 0) {
-									await this.onAllBlocksProcessed?.()
+									console.log(
+										`[DiffApproveProvider] All blocks processed, calling onAllBlocksProcessed`,
+									)
+									try {
+										await this.onAllBlocksProcessed?.()
+										console.log(`[DiffApproveProvider] onAllBlocksProcessed completed successfully`)
+									} catch (error) {
+										console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed:`, error)
+									}
 									this.dispose()
 								}
 							}
@@ -107,6 +120,9 @@ export class DiffApproveProvider {
 					case "approveAll":
 					case "denyAll": {
 						const isApprove = message.type === "approveAll"
+						console.log(
+							`[DiffApproveProvider] Processing ${this.pendingBlocks.size} pending blocks for ${isApprove ? "approve" : "deny"} all`,
+						)
 						for (const blockId of this.pendingBlocks) {
 							await this.onBlockApprove?.(blockId, isApprove)
 						}
@@ -115,7 +131,20 @@ export class DiffApproveProvider {
 							type: isApprove ? "allBlocksApproved" : "allBlocksDenied",
 						})
 						this.pendingBlocks.clear()
-						await this.onAllBlocksProcessed?.()
+						console.log(
+							`[DiffApproveProvider] All blocks processed in ${isApprove ? "approve" : "deny"} all, calling onAllBlocksProcessed`,
+						)
+						try {
+							await this.onAllBlocksProcessed?.()
+							console.log(
+								`[DiffApproveProvider] onAllBlocksProcessed completed successfully for ${isApprove ? "approve" : "deny"} all`,
+							)
+						} catch (error) {
+							console.error(
+								`[DiffApproveProvider] Error in onAllBlocksProcessed for ${isApprove ? "approve" : "deny"} all:`,
+								error,
+							)
+						}
 						this.dispose()
 						break
 					}
@@ -128,6 +157,20 @@ export class DiffApproveProvider {
 		// Clean up when panel is closed
 		panel.onDidDispose(
 			() => {
+				console.log(`[DiffApproveProvider] Panel disposed, ${this.pendingBlocks.size} pending blocks remaining`)
+				// If there are still pending blocks when the panel is closed,
+				// we should still call onAllBlocksProcessed
+				if (this.pendingBlocks.size > 0) {
+					console.log(`[DiffApproveProvider] Panel closed with pending blocks, calling onAllBlocksProcessed`)
+					try {
+						this.onAllBlocksProcessed?.().catch((error) => {
+							console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed on panel close:`, error)
+						})
+						console.log(`[DiffApproveProvider] onAllBlocksProcessed called on panel close`)
+					} catch (error) {
+						console.error(`[DiffApproveProvider] Error calling onAllBlocksProcessed on panel close:`, error)
+					}
+				}
 				this.dispose()
 			},
 			null,
@@ -515,12 +558,42 @@ export class DiffApproveProvider {
 	}
 
 	public dispose(): void {
-		DiffApproveProvider.currentPanel?.dispose()
-		DiffApproveProvider.currentPanel = undefined
+		console.log(`[DiffApproveProvider] dispose called, cleaning up resources`)
 
-		while (this.disposables.length) {
-			const disposable = this.disposables.pop()
-			disposable?.dispose()
+		// Ensure onAllBlocksProcessed is called whenever we dispose
+		if (this.pendingBlocks.size > 0) {
+			console.log(
+				`[DiffApproveProvider] dispose: Calling onAllBlocksProcessed for ${this.pendingBlocks.size} remaining blocks`,
+			)
+			try {
+				this.onAllBlocksProcessed?.().catch((error) => {
+					console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed during dispose:`, error)
+				})
+			} catch (error) {
+				console.error(`[DiffApproveProvider] Error calling onAllBlocksProcessed during dispose:`, error)
+			}
 		}
+
+		// Only dispose the panel if it matches the current one
+		if (DiffApproveProvider.currentPanel) {
+			try {
+				DiffApproveProvider.currentPanel.dispose()
+				console.log(`[DiffApproveProvider] Panel disposed successfully`)
+			} catch (error) {
+				console.error(`[DiffApproveProvider] Error disposing panel:`, error)
+			}
+			DiffApproveProvider.currentPanel = undefined
+		}
+
+		// Clean up all disposables
+		while (this.disposables.length) {
+			try {
+				const disposable = this.disposables.pop()
+				disposable?.dispose()
+			} catch (error) {
+				console.error(`[DiffApproveProvider] Error disposing a disposable:`, error)
+			}
+		}
+		console.log(`[DiffApproveProvider] All resources cleaned up`)
 	}
 }
