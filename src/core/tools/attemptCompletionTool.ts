@@ -111,6 +111,29 @@ export async function attemptCompletionTool(
 			// button and field.
 			const { response, text, images } = await cline.ask("completion_result", "", false)
 
+			// Auto-open diff viewer regardless of response
+			console.log("************************* TASK COMPLETE *************************")
+			console.log("[TASK_COMPLETE_DEBUG] Entering auto-diff section")
+			console.log("[TASK_COMPLETE_DEBUG] cline instance:", {
+				hasCheckpointDiff: !!cline.checkpointDiff,
+				taskId: cline.taskId,
+				instance: cline.instanceId,
+			})
+			// Show a UI message to verify execution reaches this point
+			const vscode = require("vscode")
+			vscode.window.showInformationMessage("About to attempt opening diff viewer")
+			try {
+				console.log("[attemptCompletionTool] Attempting to auto-open diff viewer")
+				await cline.checkpointDiff({
+					ts: Date.now(),
+					previousCommitHash: undefined, // Diff against working tree
+					mode: "checkpoint",
+				})
+				console.log("[attemptCompletionTool] Successfully opened diff viewer")
+			} catch (error) {
+				console.warn("[attemptCompletionTool] Failed to auto-open diff viewer:", error)
+			}
+
 			// Signals to recursive loop to stop (for now
 			// cline never happens since yesButtonClicked
 			// will trigger a new task).
@@ -143,29 +166,6 @@ export async function attemptCompletionTool(
 			})
 
 			cline.userMessageContent.push(...toolResults)
-
-			console.log("************************* TASK COMPLETE *************************")
-			// Auto-open diff viewer (same behavior as chat button)
-			console.log("[TASK_COMPLETE_DEBUG] Entering auto-diff section")
-			console.log("[TASK_COMPLETE_DEBUG] cline instance:", {
-				hasCheckpointDiff: !!cline.checkpointDiff,
-				taskId: cline.taskId,
-				instance: cline.instanceId,
-			})
-			// Show a UI message to verify execution reaches this point
-			const vscode = require("vscode")
-			vscode.window.showInformationMessage("About to attempt opening diff viewer")
-			try {
-				console.log("[attemptCompletionTool] Attempting to auto-open diff viewer")
-				await cline.checkpointDiff({
-					ts: Date.now(),
-					previousCommitHash: undefined, // Diff against working tree
-					mode: "checkpoint",
-				})
-				console.log("[attemptCompletionTool] Successfully opened diff viewer")
-			} catch (error) {
-				console.warn("[attemptCompletionTool] Failed to auto-open diff viewer:", error)
-			}
 
 			return
 		}
