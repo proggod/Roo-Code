@@ -1334,6 +1334,21 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 			await provider.postStateToWebview()
 			break
 		}
+		case "checkpointDiffWeb": {
+			console.log("[webviewMessageHandler] Received checkpointDiffWeb message", message.payload)
+			const diffWebResult = checkoutDiffPayloadSchema.safeParse(message.payload)
+
+			if (diffWebResult.success) {
+				console.log(
+					"[webviewMessageHandler] checkpointDiffWeb payload successfully parsed, calling checkpointDiff",
+				)
+				await provider.getCurrentCline()?.checkpointDiff(diffWebResult.data)
+			} else {
+				console.error("[webviewMessageHandler] checkpointDiffWeb failed to parse payload:", diffWebResult.error)
+			}
+
+			break
+		}
 	}
 }
 

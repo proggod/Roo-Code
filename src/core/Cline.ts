@@ -2531,6 +2531,8 @@ export class Cline extends EventEmitter<ClineEvents> {
 				return
 			}
 
+			console.log(`[checkpointDiff] Changes found, showing diff approve view`, { changesLength: changes.length })
+
 			// Create a new instance of DiffApproveProvider
 			const provider = new DiffApproveProvider(this.providerRef.deref()?.context.extensionUri!)
 
