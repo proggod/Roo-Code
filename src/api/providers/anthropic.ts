@@ -12,7 +12,7 @@ import { ApiStream } from "../transform/stream"
 import { BaseProvider } from "./base-provider"
 import { ANTHROPIC_DEFAULT_MAX_TOKENS } from "./constants"
 import { SingleCompletionHandler, getModelParams } from "../index"
-import { logApiRequest } from "../../utils/api-logger"
+import { logApiRequest, logApiResponse } from "../../utils/api-logger"
 
 export class AnthropicHandler extends BaseProvider implements SingleCompletionHandler {
 	private options: ApiHandlerOptions
@@ -28,6 +28,14 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 	}
 
 	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+		// For collecting the complete response to log
+		let responseContent = ""
+		let responseUsage = {
+			inputTokens: 0,
+			outputTokens: 0,
+			cacheWriteTokens: undefined as number | undefined,
+			cacheReadTokens: undefined as number | undefined,
+		}
 		let stream: AnthropicStream<Anthropic.Messages.RawMessageStreamEvent>
 		const cacheControl: CacheControlEphemeral = { type: "ephemeral" }
 		let { id: modelId, maxTokens, thinking, temperature, virtualId } = this.getModel()
@@ -135,6 +143,12 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 					// Tells us cache reads/writes/input/output.
 					const usage = chunk.message.usage
 
+					// Update usage for logging
+					responseUsage.inputTokens = usage.input_tokens || 0
+					responseUsage.outputTokens = usage.output_tokens || 0
+					responseUsage.cacheWriteTokens = usage.cache_creation_input_tokens || undefined
+					responseUsage.cacheReadTokens = usage.cache_read_input_tokens || undefined
+
 					yield {
 						type: "usage",
 						inputTokens: usage.input_tokens || 0,
@@ -147,6 +161,10 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 				case "message_delta":
 					// Tells us stop_reason, stop_sequence, and output tokens
 					// along the way and at the end of the message.
+
+					// Update output tokens for logging
+					responseUsage.outputTokens = chunk.usage.output_tokens || 0
+
 					yield {
 						type: "usage",
 						inputTokens: 0,
@@ -156,6 +174,11 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 					break
 				case "message_stop":
 					// No usage data, just an indicator that the message is done.
+					// Log the complete response
+					logApiResponse({
+						content: responseContent,
+						usage: responseUsage,
+					})
 					break
 				case "content_block_start":
 					switch (chunk.content_block.type) {
@@ -172,9 +195,12 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 							// We may receive multiple text blocks, in which
 							// case just insert a line break between them.
 							if (chunk.index > 0) {
-								yield { type: "text", text: "\n" }
+								const newlineText = "\n"
+								responseContent += newlineText
+								yield { type: "text", text: newlineText }
 							}
 
+							responseContent += chunk.content_block.text
 							yield { type: "text", text: chunk.content_block.text }
 							break
 					}
@@ -185,6 +211,7 @@ export class AnthropicHandler extends BaseProvider implements SingleCompletionHa
 							yield { type: "reasoning", text: chunk.delta.thinking }
 							break
 						case "text_delta":
+							responseContent += chunk.delta.text
 							yield { type: "text", text: chunk.delta.text }
 							break
 					}

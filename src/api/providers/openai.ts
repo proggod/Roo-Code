@@ -16,9 +16,7 @@ import { ApiStream, ApiStreamUsageChunk } from "../transform/stream"
 import { BaseProvider } from "./base-provider"
 import { XmlMatcher } from "../../utils/xml-matcher"
 
-
-
-import { logApiRequest } from "../../utils/api-logger"
+import { logApiRequest, logApiResponse } from "../../utils/api-logger"
 
 const DEEP_SEEK_DEFAULT_TEMPERATURE = 0.6
 
@@ -68,6 +66,12 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 	}
 
 	override async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
+		// For collecting the complete response to log
+		let responseContent = ""
+		let responseUsage = {
+			inputTokens: 0,
+			outputTokens: 0,
+		}
 		const modelInfo = this.getModel().info
 		const modelUrl = this.options.openAiBaseUrl ?? ""
 		const modelId = this.options.openAiModelId ?? ""
@@ -142,7 +146,6 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 				requestOptions.max_tokens = modelInfo.maxTokens
 			}
 
-
 			logApiRequest({
 				systemPrompt,
 				messages,
@@ -152,7 +155,6 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 				requestOptions,
 				isAzureAiInference ? { path: AZURE_AI_INFERENCE_PATH } : {},
 			)
-
 
 			const matcher = new XmlMatcher(
 				"think",
@@ -170,6 +172,9 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 
 				if (delta.content) {
 					for (const chunk of matcher.update(delta.content)) {
+						if (chunk.type === "text") {
+							responseContent += chunk.text
+						}
 						yield chunk
 					}
 				}
@@ -182,6 +187,8 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 				}
 				if (chunk.usage) {
 					lastUsage = chunk.usage
+					responseUsage.inputTokens = chunk.usage.prompt_tokens || 0
+					responseUsage.outputTokens = chunk.usage.completion_tokens || 0
 				}
 			}
 			for (const chunk of matcher.final()) {
@@ -191,6 +198,12 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 			if (lastUsage) {
 				yield this.processUsageMetrics(lastUsage, modelInfo)
 			}
+
+			// Log the complete response
+			logApiResponse({
+				content: responseContent,
+				usage: responseUsage,
+			})
 		} else {
 			// o1 for instance doesnt support streaming, non-1 temp, or system prompt
 			const systemMessage: OpenAI.Chat.ChatCompletionUserMessageParam = {
@@ -210,11 +223,23 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 				this._isAzureAiInference(modelUrl) ? { path: AZURE_AI_INFERENCE_PATH } : {},
 			)
 
+			const responseText = response.choices[0]?.message.content || ""
+			const usageMetrics = this.processUsageMetrics(response.usage, modelInfo)
+
 			yield {
 				type: "text",
-				text: response.choices[0]?.message.content || "",
+				text: responseText,
 			}
-			yield this.processUsageMetrics(response.usage, modelInfo)
+			yield usageMetrics
+
+			// Log the complete response
+			logApiResponse({
+				content: responseText,
+				usage: {
+					inputTokens: usageMetrics.inputTokens,
+					outputTokens: usageMetrics.outputTokens,
+				},
+			})
 		}
 	}
 
@@ -299,18 +324,38 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 				methodIsAzureAiInference ? { path: AZURE_AI_INFERENCE_PATH } : {},
 			)
 
+			const responseText = response.choices[0]?.message.content || ""
+			const usageMetrics = this.processUsageMetrics(response.usage)
+
 			yield {
 				type: "text",
-				text: response.choices[0]?.message.content || "",
+				text: responseText,
 			}
-			yield this.processUsageMetrics(response.usage)
+			yield usageMetrics
+
+			// Log the complete response
+			logApiResponse({
+				content: responseText,
+				usage: {
+					inputTokens: usageMetrics.inputTokens,
+					outputTokens: usageMetrics.outputTokens,
+				},
+			})
 		}
 	}
 
 	private async *handleStreamResponse(stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>): ApiStream {
+		// For collecting the complete response to log
+		let responseContent = ""
+		let responseUsage = {
+			inputTokens: 0,
+			outputTokens: 0,
+		}
+
 		for await (const chunk of stream) {
 			const delta = chunk.choices[0]?.delta
 			if (delta?.content) {
+				responseContent += delta.content
 				yield {
 					type: "text",
 					text: delta.content,
@@ -318,6 +363,8 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 			}
 
 			if (chunk.usage) {
+				responseUsage.inputTokens = chunk.usage.prompt_tokens || 0
+				responseUsage.outputTokens = chunk.usage.completion_tokens || 0
 				yield {
 					type: "usage",
 					inputTokens: chunk.usage.prompt_tokens || 0,
@@ -325,6 +372,12 @@ export class OpenAiHandler extends BaseProvider implements SingleCompletionHandl
 				}
 			}
 		}
+
+		// Log the complete response
+		logApiResponse({
+			content: responseContent,
+			usage: responseUsage,
+		})
 	}
 	private _getUrlHost(baseUrl?: string): string {
 		try {
