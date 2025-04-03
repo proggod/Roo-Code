@@ -932,7 +932,6 @@ describe("ClineProvider", () => {
 		// Should save config as default for current mode
 		expect(provider.providerSettingsManager.setModeConfig).toHaveBeenCalledWith("code", "test-id")
 	})
-
 	test("file content includes line numbers", async () => {
 		const { extractTextFromFile } = require("../../../integrations/misc/extract-text")
 		const result = await extractTextFromFile("test.js")
@@ -1413,7 +1412,6 @@ describe("ClineProvider", () => {
 			// Mock SYSTEM_PROMPT to verify supportsComputerUse is passed correctly
 			const systemPromptModule = require("../../prompts/system")
 			const systemPromptSpy = jest.spyOn(systemPromptModule, "SYSTEM_PROMPT")
-
 			// Mock getState to return browserToolEnabled: false
 			jest.spyOn(provider, "getState").mockResolvedValue({
 				apiConfiguration: {
@@ -1893,7 +1891,6 @@ describe("ClineProvider", () => {
 				type: "testBrowserConnection",
 				text: "http://inlocalhost:9222",
 			})
-
 			// Verify postMessage was called with failure result
 			expect(mockPostMessage).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -2098,7 +2095,6 @@ describe("Project MCP Settings", () => {
 		// Verify error message was shown
 		expect(vscode.window.showErrorMessage).toHaveBeenCalledWith("no_workspace")
 	})
-
 	test.skip("handles openProjectMcpSettings file creation error", async () => {
 		await provider.resolveWebviewView(mockWebviewView)
 		const messageHandler = (mockWebviewView.webview.onDidReceiveMessage as jest.Mock).mock.calls[0][0]

@@ -2542,6 +2542,12 @@ export class Cline extends EventEmitter<ClineEvents> {
 
 			console.log(`[checkpointDiff] Changes found, showing diff approve view`, { changesLength: changes.length })
 
+			// Reset approved files tracking at the start of a new checkpoint diff
+			// Only do this if we're starting a fresh diff, not if we're continuing from a previous one
+			if (mode === "checkpoint" && !commitHash) {
+				DiffApproveProvider.resetApprovedFiles()
+			}
+
 			// Create a new instance of DiffApproveProvider
 			const provider = new DiffApproveProvider(this.providerRef.deref()?.context.extensionUri!)
 
@@ -2554,165 +2560,226 @@ export class Cline extends EventEmitter<ClineEvents> {
 				changesPaths: changes.map((c) => c.paths.relative),
 			})
 
+			// Filter out files that have already been approved
+			const pendingChanges = changes.filter(
+				(change) => !DiffApproveProvider.isFileApproved(change.paths.relative),
+			)
+
+			// Update active views count to only include pending changes
+			activeViews = pendingChanges.length
+
+			if (pendingChanges.length === 0) {
+				vscode.window.showInformationMessage("All changes have been approved!")
+				return
+			}
+
+			console.log(
+				`[checkpointDiff] Showing ${pendingChanges.length} pending changes out of ${changes.length} total changes`,
+			)
+
 			// Show each change in the diff approve view
-			for (const change of changes) {
-				// Create a temporary file for the old version from git
-				const tempDir = vscode.Uri.joinPath(this.providerRef.deref()?.context.extensionUri!, "temp")
-				const oldVersionFileName = `${path.basename(change.paths.relative)}.${previousCommitHash?.substring(0, 7) || "original"}`
-				const oldVersionUri = vscode.Uri.joinPath(tempDir, oldVersionFileName)
-
-				// Use actual file path for working copy
-				const workingUri = vscode.Uri.file(change.paths.absolute)
-
-				// Ensure temp directory exists
+			for (const change of pendingChanges) {
 				try {
-					await vscode.workspace.fs.createDirectory(tempDir)
-				} catch (error) {
-					// Directory might already exist
-				}
+					// Create a temporary file for the old version from git
+					const tempDir = vscode.Uri.joinPath(this.providerRef.deref()?.context.extensionUri!, "temp")
+					const oldVersionFileName = `${path.basename(change.paths.relative)}.${previousCommitHash?.substring(0, 7) || "original"}`
+					const oldVersionUri = vscode.Uri.joinPath(tempDir, oldVersionFileName)
 
-				// Write old content from git to temp file
-				await vscode.workspace.fs.writeFile(oldVersionUri, Buffer.from(change.content.before || ""))
+					// Use actual file path for working copy
+					const workingUri = vscode.Uri.file(change.paths.absolute)
 
-				// Show diff with approval UI
-				await provider.show(
-					oldVersionUri,
-					workingUri,
-					async (blockId: number, approved: boolean) => {
-						if (approved) {
-							vscode.window.showInformationMessage(
-								`Block ${blockId} in ${change.paths.relative} approved`,
-							)
-						} else {
-							// For denied blocks, revert that block in the working file
-							const blocks = provider.findRelatedBlocks(blockId)
-							if (blocks.length > 0) {
-								const workingContent = await vscode.workspace.fs.readFile(workingUri)
-								let workingLines = workingContent.toString().split("\n")
+					// Ensure temp directory exists
+					try {
+						await vscode.workspace.fs.createDirectory(tempDir)
+					} catch (error) {
+						// Directory might already exist
+						console.log(`[checkpointDiff] Temp directory may already exist: ${error.message}`)
+					}
 
-								// Process blocks in reverse order to handle line numbers correctly
-								for (const block of blocks.reverse()) {
-									switch (block.type) {
-										case "addition":
-											// Remove added lines
-											workingLines.splice(block.newStart - 1, block.newLines.length)
-											break
-										case "deletion":
-											// Restore deleted lines at the correct position
-											workingLines.splice(block.oldStart - 1, 0, ...block.oldLines)
-											break
-										case "change":
-											// Replace changed lines with original
-											workingLines.splice(
-												block.newStart - 1,
-												block.newLines.length,
-												...block.oldLines,
-											)
-											break
-									}
-								}
+					// Write old content from git to temp file
+					await vscode.workspace.fs.writeFile(oldVersionUri, Buffer.from(change.content.before || ""))
 
-								// Write back the updated content
-								await vscode.workspace.fs.writeFile(workingUri, Buffer.from(workingLines.join("\n")))
-							}
-							vscode.window.showInformationMessage(`Changes in ${change.paths.relative} reverted`)
-						}
-					},
-					async () => {
-						// Check if this file has already been processed to avoid duplicate callbacks
-						if (processedFiles.has(change.paths.relative)) {
-							console.log(
-								`[checkpointDiff] File ${change.paths.relative} has already been processed, ignoring duplicate callback`,
-							)
-							return // Skip processing for files we've already handled
-						}
-
-						console.log(
-							`[checkpointDiff] onAllBlocksProcessed callback started for file: ${change.paths.relative}`,
-						)
-						try {
-							// Clean up temp file
-							try {
-								await vscode.workspace.fs.delete(oldVersionUri)
-							} catch (error) {
-								console.log(
-									`[checkpointDiff] Error deleting temp file (may already be deleted): ${error.message}`,
+					// Show diff with approval UI
+					await provider.show(
+						oldVersionUri,
+						workingUri,
+						async (blockId: number, approved: boolean) => {
+							if (approved) {
+								vscode.window.showInformationMessage(
+									`Block ${blockId} in ${change.paths.relative} approved`,
 								)
-							}
-
-							// Mark this file as processed
-							processedFiles.add(change.paths.relative)
-
-							// Decrement active views counter
-							console.log(
-								`[checkpointDiff] Decrementing activeViews from ${activeViews} to ${activeViews - 1}`,
-								{ file: change.paths.relative },
-							)
-							activeViews--
-
-							// When all views are closed, reset the verified checkpoint
-							console.log(`[checkpointDiff] After decrement, activeViews=${activeViews}`, {
-								file: change.paths.relative,
-								processedCount: processedFiles.size,
-								totalChanges: changes.length,
-							})
-							if (activeViews === 0) {
-								console.log(
-									"✅✅✅ [checkpointDiff] All diff views closed, resetting verified checkpoint ✅✅✅",
-								)
-								const service = this.getCheckpointService()
-								if (service) {
-									// First reset the verified checkpoint
-									await service.resetVerifiedCheckpoint()
-
-									// Then save a new checkpoint - this will automatically become verified since we just reset
-									try {
-										const result = await service.saveCheckpoint(
-											"Saving state after diff view closed",
-										)
-										if (result === undefined) {
-											// No changes detected, set HEAD as verified checkpoint
-											console.log(
-												"[checkpointDiff] No changes detected, setting HEAD as verified checkpoint",
-											)
-											await service.setLastVerifiedCheckpoint("HEAD")
-										}
-									} catch (error) {
-										console.error("[checkpointDiff] Failed to save checkpoint:", error)
-										// If saving fails, try to set HEAD as the verified checkpoint
-										try {
-											await service.setLastVerifiedCheckpoint("HEAD")
-										} catch (setError) {
-											console.error(
-												"[checkpointDiff] Failed to set HEAD as verified checkpoint:",
-												setError,
-											)
-										}
-									}
-								}
-
-								const provider = this.providerRef.deref()
-								if (provider) {
-									provider.log("[checkpointDiff] All diff views closed, verified checkpoint reset")
-									provider.postMessageToWebview({ type: "currentCheckpointUpdated", text: "" })
-								}
 							} else {
-								console.log(
-									`[checkpointDiff] Still waiting for ${activeViews} more files to be processed`,
-								)
+								// For denied blocks, revert that block in the working file
+								const blocks = provider.findRelatedBlocks(blockId, {
+									panel: {} as vscode.WebviewPanel,
+									pendingBlocks: new Set(),
+									hasCalledAllBlocksProcessed: false,
+									filePath: change.paths.absolute,
+									panelId: `dummy_${Date.now()}`,
+								})
+								if (blocks.length > 0) {
+									const workingContent = await vscode.workspace.fs.readFile(workingUri)
+									let workingLines = workingContent.toString().split("\n")
+
+									// Process blocks in reverse order to handle line numbers correctly
+									for (const block of blocks.reverse()) {
+										switch (block.type) {
+											case "addition":
+												// Remove added lines
+												workingLines.splice(block.newStart - 1, block.newLines.length)
+												break
+											case "deletion":
+												// Restore deleted lines at the correct position
+												workingLines.splice(block.oldStart - 1, 0, ...block.oldLines)
+												break
+											case "change":
+												// Replace changed lines with original
+												workingLines.splice(
+													block.newStart - 1,
+													block.newLines.length,
+													...block.oldLines,
+												)
+												break
+										}
+									}
+
+									// Write back the updated content
+									await vscode.workspace.fs.writeFile(
+										workingUri,
+										Buffer.from(workingLines.join("\n")),
+									)
+								}
+								vscode.window.showInformationMessage(`Changes in ${change.paths.relative} reverted`)
 							}
+						},
+						async () => {
+							// Check if this file has already been processed to avoid duplicate callbacks
+							if (processedFiles.has(change.paths.relative)) {
+								console.log(
+									`[checkpointDiff] File ${change.paths.relative} has already been processed, ignoring duplicate callback`,
+								)
+								return // Skip processing for files we've already handled
+							}
+
+							// Mark this file as approved since all blocks have been processed
+							DiffApproveProvider.markFileAsApproved(change.paths.relative)
+
 							console.log(
-								`[checkpointDiff] onAllBlocksProcessed callback completed for file: ${change.paths.relative}`,
+								`[checkpointDiff] onAllBlocksProcessed callback started for file: ${change.paths.relative}`,
 							)
-						} catch (error) {
-							console.error("Failed to cleanup:", error)
+							try {
+								// Clean up temp file
+								try {
+									await vscode.workspace.fs.delete(oldVersionUri)
+								} catch (error) {
+									console.log(
+										`[checkpointDiff] Error deleting temp file (may already be deleted): ${error.message}`,
+									)
+								}
+
+								// Mark this file as processed
+								processedFiles.add(change.paths.relative)
+
+								// Decrement active views counter
+								console.log(
+									`[checkpointDiff] Decrementing activeViews from ${activeViews} to ${activeViews - 1}`,
+									{ file: change.paths.relative },
+								)
+								activeViews--
+
+								// When all views are closed, reset the verified checkpoint
+								console.log(`[checkpointDiff] After decrement, activeViews=${activeViews}`, {
+									file: change.paths.relative,
+									processedCount: processedFiles.size,
+									totalChanges: changes.length,
+								})
+								if (activeViews === 0) {
+									console.log(
+										"✅✅✅ [checkpointDiff] All diff views closed, resetting verified checkpoint ✅✅✅",
+									)
+									const service = this.getCheckpointService()
+									if (service) {
+										// First reset the verified checkpoint
+										await service.resetVerifiedCheckpoint()
+
+										// Then save a new checkpoint - this will automatically become verified since we just reset
+										try {
+											const result = await service.saveCheckpoint(
+												"Saving state after diff view closed",
+											)
+											if (result === undefined) {
+												// No changes detected, set HEAD as verified checkpoint
+												console.log(
+													"[checkpointDiff] No changes detected, setting HEAD as verified checkpoint",
+												)
+												await service.setLastVerifiedCheckpoint("HEAD")
+											}
+										} catch (error) {
+											console.error("[checkpointDiff] Failed to save checkpoint:", error)
+											// If saving fails, try to set HEAD as the verified checkpoint
+											try {
+												await service.setLastVerifiedCheckpoint("HEAD")
+											} catch (setError) {
+												console.error(
+													"[checkpointDiff] Failed to set HEAD as verified checkpoint:",
+													setError,
+												)
+											}
+										}
+									}
+
+									const provider = this.providerRef.deref()
+									if (provider) {
+										provider.log(
+											"[checkpointDiff] All diff views closed, verified checkpoint reset",
+										)
+										provider.postMessageToWebview({ type: "currentCheckpointUpdated", text: "" })
+									}
+								} else {
+									console.log(
+										`[checkpointDiff] Still waiting for ${activeViews} more files to be processed`,
+									)
+								}
+								console.log(
+									`[checkpointDiff] onAllBlocksProcessed callback completed for file: ${change.paths.relative}`,
+								)
+							} catch (error) {
+								console.error("Failed to cleanup:", error)
+							}
+						},
+					)
+				} catch (error) {
+					// Log the error but continue with other files
+					console.error(`[checkpointDiff] Error showing diff for ${change.paths.relative}:`, error)
+					vscode.window.showErrorMessage(`Error showing diff for ${change.paths.relative}: ${error.message}`)
+
+					// Decrement active views since this one failed
+					activeViews--
+					console.log(`[checkpointDiff] Decremented activeViews to ${activeViews} due to error`)
+
+					// If all views have failed, we should still reset the checkpoint
+					if (activeViews === 0) {
+						console.log(`[checkpointDiff] All diff views failed, resetting verified checkpoint`)
+						const service = this.getCheckpointService()
+						if (service) {
+							try {
+								await service.resetVerifiedCheckpoint()
+								await service.setLastVerifiedCheckpoint("HEAD")
+							} catch (resetError) {
+								console.error(`[checkpointDiff] Error resetting checkpoint:`, resetError)
+							}
 						}
-					},
-				)
+					}
+				}
 			}
 		} catch (err) {
-			this.providerRef.deref()?.log("[checkpointDiff] disabling checkpoints for this task")
-			this.enableCheckpoints = false
+			console.error("[checkpointDiff] Error in checkpoint diff:", err)
+			vscode.window.showErrorMessage(`Error showing diff: ${err.message}`)
+
+			// Don't close panels or reset approved files - let the user continue working
+
+			// Don't disable checkpoints completely, just log the error
+			this.providerRef.deref()?.log("[checkpointDiff] Error occurred during diff, but checkpoints remain enabled")
 		}
 	}
 
