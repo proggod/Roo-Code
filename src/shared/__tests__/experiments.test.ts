@@ -15,6 +15,7 @@ describe("experiments", () => {
 			const experiments: Record<ExperimentId, boolean> = {
 				powerSteering: false,
 				search_and_replace: false,
+				experimentalDiffStrategy: false,
 				insert_content: false,
 				apiLogging: false,
 			}
@@ -25,6 +26,7 @@ describe("experiments", () => {
 			const experiments: Record<ExperimentId, boolean> = {
 				powerSteering: true,
 				search_and_replace: false,
+				experimentalDiffStrategy: false,
 				insert_content: false,
 				apiLogging: false,
 			}
@@ -34,6 +36,7 @@ describe("experiments", () => {
 		it("returns false when experiment is not present", () => {
 			const experiments: Record<ExperimentId, boolean> = {
 				search_and_replace: false,
+				experimentalDiffStrategy: false,
 				insert_content: false,
 				powerSteering: false,
 				apiLogging: false,

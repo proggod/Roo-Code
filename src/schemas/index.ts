@@ -292,6 +292,7 @@ export type ExperimentId = z.infer<typeof experimentIdsSchema>
 
 const experimentsSchema = z.object({
 	search_and_replace: z.boolean(),
+	experimentalDiffStrategy: z.boolean(),
 	insert_content: z.boolean(),
 	powerSteering: z.boolean(),
 	apiLogging: z.boolean(),
