@@ -10,6 +10,7 @@ import { ApiStream } from "../transform/stream"
 import { DEEP_SEEK_DEFAULT_TEMPERATURE } from "./constants"
 import { XmlMatcher } from "../../utils/xml-matcher"
 import { BaseProvider } from "./base-provider"
+import { logApiRequest } from "../../utils/api-logger"
 
 export class OllamaHandler extends BaseProvider implements SingleCompletionHandler {
 	protected options: ApiHandlerOptions
@@ -31,6 +32,11 @@ export class OllamaHandler extends BaseProvider implements SingleCompletionHandl
 			{ role: "system", content: systemPrompt },
 			...(useR1Format ? convertToR1Format(messages) : convertToOpenAiMessages(messages)),
 		]
+
+		logApiRequest({
+			systemPrompt,
+			messages,
+		})
 
 		const stream = await this.client.chat.completions.create({
 			model: this.getModel().id,

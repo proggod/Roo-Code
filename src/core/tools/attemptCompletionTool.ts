@@ -14,6 +14,31 @@ import { formatResponse } from "../prompts/responses"
 import { telemetryService } from "../../services/telemetry/TelemetryService"
 import Anthropic from "@anthropic-ai/sdk"
 
+// Helper function to open diff viewer at task completion
+async function openDiffViewer(cline: Cline) {
+	console.log("************************* TASK COMPLETE *************************")
+	console.log("[TASK_COMPLETE_DEBUG] Entering auto-diff section")
+	console.log("[TASK_COMPLETE_DEBUG] cline instance:", {
+		hasCheckpointDiff: !!cline.checkpointDiff,
+		taskId: cline.taskId,
+		instance: cline.instanceId,
+	})
+	// Show a UI message to verify execution reaches this point
+	const vscode = require("vscode")
+	vscode.window.showInformationMessage("Task completed - opening diff viewer")
+	try {
+		console.log("[attemptCompletionTool] Attempting to auto-open diff viewer")
+		await cline.checkpointDiff({
+			ts: Date.now(),
+			previousCommitHash: undefined, // Diff against working tree
+			mode: "checkpoint",
+		})
+		console.log("[attemptCompletionTool] Successfully opened diff viewer")
+	} catch (error) {
+		console.warn("[attemptCompletionTool] Failed to auto-open diff viewer:", error)
+	}
+}
+
 export async function attemptCompletionTool(
 	cline: Cline,
 	block: ToolUse,
@@ -45,6 +70,9 @@ export async function attemptCompletionTool(
 					telemetryService.captureTaskCompleted(cline.taskId)
 					cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage())
 
+					// Task completed - open diff viewer
+					await openDiffViewer(cline)
+
 					await cline.ask("command", removeClosingTag("command", command), block.partial).catch(() => {})
 				}
 			} else {
@@ -69,6 +97,9 @@ export async function attemptCompletionTool(
 					await cline.say("completion_result", result, undefined, false)
 					telemetryService.captureTaskCompleted(cline.taskId)
 					cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage())
+
+					// Task completed - open diff viewer
+					await openDiffViewer(cline)
 				}
 
 				// Complete command message.
@@ -92,6 +123,9 @@ export async function attemptCompletionTool(
 				await cline.say("completion_result", result, undefined, false)
 				telemetryService.captureTaskCompleted(cline.taskId)
 				cline.emit("taskCompleted", cline.taskId, cline.getTokenUsage())
+
+				// Task completed - open diff viewer
+				await openDiffViewer(cline)
 			}
 
 			if (cline.parentTask) {
@@ -143,6 +177,7 @@ export async function attemptCompletionTool(
 			})
 
 			cline.userMessageContent.push(...toolResults)
+
 			return
 		}
 	} catch (error) {

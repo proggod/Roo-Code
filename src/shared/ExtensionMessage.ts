@@ -69,6 +69,11 @@ export interface ExtensionMessage {
 		| "maxReadFileLine"
 		| "fileSearchResults"
 		| "toggleApiConfigPin"
+		| "systemPromptAppendText"
+		| "vscodeLinks"
+		| "apiRequestEvent"
+		| "checkpoint"
+		| "latestCheckpointHash"
 	text?: string
 	action?:
 		| "chatButtonClicked"

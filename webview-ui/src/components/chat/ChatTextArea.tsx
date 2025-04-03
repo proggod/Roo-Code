@@ -32,6 +32,7 @@ interface ChatTextAreaProps {
 	inputValue: string
 	setInputValue: (value: string) => void
 	textAreaDisabled: boolean
+	selectApiConfigDisabled: boolean
 	placeholderText: string
 	selectedImages: string[]
 	setSelectedImages: React.Dispatch<React.SetStateAction<string[]>>
@@ -50,6 +51,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			inputValue,
 			setInputValue,
 			textAreaDisabled,
+			selectApiConfigDisabled,
 			placeholderText,
 			selectedImages,
 			setSelectedImages,
@@ -975,7 +977,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						<div className={cn("flex-1", "min-w-0", "overflow-hidden")}>
 							<SelectDropdown
 								value={currentConfigId}
-								disabled={textAreaDisabled}
+								disabled={selectApiConfigDisabled}
 								title={t("chat:selectApiConfig")}
 								placeholder={displayName} // Always show the current name
 								options={[
@@ -1084,6 +1086,22 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							disabled={textAreaDisabled}
 							isLoading={isEnhancingPrompt}
 							onClick={handleEnhancePrompt}
+						/>
+						<IconButton
+							iconClass="codicon-git-compare"
+							title={t("chat:viewGitDiff")}
+							disabled={textAreaDisabled}
+							onClick={() => {
+								console.log("Sending checkpointDiffWeb message from webview")
+								vscode.postMessage({
+									type: "checkpointDiffWeb",
+									payload: {
+										ts: Date.now(),
+										previousCommitHash: undefined, // Explicitly set to undefined to diff against working tree
+										mode: "checkpoint",
+									},
+								})
+							}}
 						/>
 						<IconButton
 							iconClass="codicon-device-camera"

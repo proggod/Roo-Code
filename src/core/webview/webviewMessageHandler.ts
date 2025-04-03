@@ -9,6 +9,7 @@ import { changeLanguage, t } from "../../i18n"
 import { ApiConfiguration } from "../../shared/api"
 import { supportPrompt } from "../../shared/support-prompt"
 import { GlobalFileNames } from "../../shared/globalFileNames"
+import { updateSystemPromptAppendText } from "../Cline"
 
 import { checkoutDiffPayloadSchema, checkoutRestorePayloadSchema, WebviewMessage } from "../../shared/WebviewMessage"
 import { checkExistKey } from "../../shared/checkExistApiConfig"
@@ -1253,13 +1254,6 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 
 			await provider.updateGlobalState("experiments", updatedExperiments)
 
-			const currentCline = provider.getCurrentCline()
-
-			// Update diffStrategy in current Cline instance if it exists.
-			if (message.values[EXPERIMENT_IDS.DIFF_STRATEGY_UNIFIED] !== undefined && currentCline) {
-				await currentCline.updateDiffStrategy(updatedExperiments)
-			}
-
 			await provider.postStateToWebview()
 			break
 		}
@@ -1334,6 +1328,29 @@ export const webviewMessageHandler = async (provider: ClineProvider, message: We
 			await provider.postStateToWebview()
 			break
 		}
+		case "checkpointDiffWeb": {
+			console.log("[webviewMessageHandler] Received checkpointDiffWeb message", message.payload)
+			const diffWebResult = checkoutDiffPayloadSchema.safeParse(message.payload)
+
+			if (diffWebResult.success) {
+				console.log(
+					"[webviewMessageHandler] checkpointDiffWeb payload successfully parsed, calling checkpointDiff",
+				)
+				try {
+					await provider.getCurrentCline()?.checkpointDiff(diffWebResult.data)
+					console.log("[webviewMessageHandler] checkpointDiff successfully executed from webview")
+				} catch (err) {
+					console.error("[webviewMessageHandler] Error executing checkpointDiff from webview:", err)
+				}
+			} else {
+				console.error("[webviewMessageHandler] checkpointDiffWeb failed to parse payload:", diffWebResult.error)
+			}
+
+			break
+		}
+		case "updateSystemPromptAppendText":
+			updateSystemPromptAppendText(message.text || "")
+			break
 	}
 }
 

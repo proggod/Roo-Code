@@ -18,14 +18,19 @@ import { initializeI18n } from "./i18n"
 import { ClineProvider } from "./core/webview/ClineProvider"
 import { CodeActionProvider } from "./core/CodeActionProvider"
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
+import { DIFF_APPROVE_URI_SCHEME } from "./integrations/diff-approve/DiffApproveProvider"
 import { McpServerManager } from "./services/mcp/McpServerManager"
 import { telemetryService } from "./services/telemetry/TelemetryService"
 import { TerminalRegistry } from "./integrations/terminal/TerminalRegistry"
 import { API } from "./exports/api"
 import { migrateSettings } from "./utils/migrateSettings"
+import { resetLogFile, setApiLoggingEnabled } from "./utils/api-logger"
+import { EXPERIMENT_IDS, experimentDefault } from "./shared/experiments"
+import { ExperimentId } from "./schemas"
 
 import { handleUri, registerCommands, registerCodeActions, registerTerminalActions } from "./activate"
 import { formatLanguage } from "./shared/language"
+import { getSystemPromptAppendText, updateSystemPromptAppendText } from "./core/Cline"
 
 /**
  * Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -45,6 +50,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	outputChannel = vscode.window.createOutputChannel("Roo-Code")
 	context.subscriptions.push(outputChannel)
 	outputChannel.appendLine("Roo-Code extension activated")
+
+	// Reset the API log file
+	resetLogFile()
 
 	// Migrate old settings to new
 	await migrateSettings(context, outputChannel)
@@ -68,6 +76,11 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const provider = new ClineProvider(context, outputChannel, "sidebar")
 	telemetryService.setProvider(provider)
+
+	// Initialize API logging flag from experiment state
+	const experiments = context.globalState.get<Record<ExperimentId, boolean>>("experiments") ?? experimentDefault
+	const apiLoggingEnabled = experiments[EXPERIMENT_IDS.API_LOGGING] ?? false
+	setApiLoggingEnabled(apiLoggingEnabled)
 
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider(ClineProvider.sideBarId, provider, {
@@ -103,6 +116,15 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.workspace.registerTextDocumentContentProvider(DIFF_VIEW_URI_SCHEME, diffContentProvider),
 	)
 
+	// Register the diff approve content provider
+	context.subscriptions.push(
+		vscode.workspace.registerTextDocumentContentProvider(DIFF_APPROVE_URI_SCHEME, {
+			provideTextDocumentContent(uri: vscode.Uri): string {
+				return Buffer.from(uri.query, "base64").toString()
+			},
+		}),
+	)
+
 	context.subscriptions.push(vscode.window.registerUriHandler({ handleUri }))
 
 	// Register code actions provider.
@@ -119,7 +141,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	vscode.commands.executeCommand("roo-cline.activationCompleted")
 
 	// Implements the `RooCodeAPI` interface.
-	return new API(outputChannel, provider)
+	const socketPath = process.env.ROO_CODE_IPC_SOCKET_PATH
+	const enableLogging = typeof socketPath === "string"
+	return new API(outputChannel, provider, socketPath, enableLogging)
 }
 
 // This method is called when your extension is deactivated

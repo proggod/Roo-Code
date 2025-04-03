@@ -1,3 +1,4 @@
+temp/
 .pnpm-store
 dist
 out

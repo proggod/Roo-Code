@@ -279,6 +279,7 @@ export const experimentIds = [
 	"experimentalDiffStrategy",
 	"insert_content",
 	"powerSteering",
+	"apiLogging",
 ] as const
 
 export const experimentIdsSchema = z.enum(experimentIds)
@@ -294,6 +295,7 @@ const experimentsSchema = z.object({
 	experimentalDiffStrategy: z.boolean(),
 	insert_content: z.boolean(),
 	powerSteering: z.boolean(),
+	apiLogging: z.boolean(),
 })
 
 export type Experiments = z.infer<typeof experimentsSchema>
@@ -626,6 +628,8 @@ export const GLOBAL_SETTINGS_KEYS = Object.keys(globalSettingsRecord) as Keys<Gl
  * RooCodeSettings
  */
 
+export const rooCodeSettingsSchema = providerSettingsSchema.merge(globalSettingsSchema)
+
 export type RooCodeSettings = GlobalSettings & ProviderSettings
 
 /**
@@ -788,6 +792,46 @@ export const tokenUsageSchema = z.object({
 export type TokenUsage = z.infer<typeof tokenUsageSchema>
 
 /**
+ * RooCodeEvent
+ */
+
+export enum RooCodeEventName {
+	Message = "message",
+	TaskCreated = "taskCreated",
+	TaskStarted = "taskStarted",
+	TaskModeSwitched = "taskModeSwitched",
+	TaskPaused = "taskPaused",
+	TaskUnpaused = "taskUnpaused",
+	TaskAskResponded = "taskAskResponded",
+	TaskAborted = "taskAborted",
+	TaskSpawned = "taskSpawned",
+	TaskCompleted = "taskCompleted",
+	TaskTokenUsageUpdated = "taskTokenUsageUpdated",
+}
+
+export const rooCodeEventsSchema = z.object({
+	[RooCodeEventName.Message]: z.tuple([
+		z.object({
+			taskId: z.string(),
+			action: z.union([z.literal("created"), z.literal("updated")]),
+			message: clineMessageSchema,
+		}),
+	]),
+	[RooCodeEventName.TaskCreated]: z.tuple([z.string()]),
+	[RooCodeEventName.TaskStarted]: z.tuple([z.string()]),
+	[RooCodeEventName.TaskModeSwitched]: z.tuple([z.string(), z.string()]),
+	[RooCodeEventName.TaskPaused]: z.tuple([z.string()]),
+	[RooCodeEventName.TaskUnpaused]: z.tuple([z.string()]),
+	[RooCodeEventName.TaskAskResponded]: z.tuple([z.string()]),
+	[RooCodeEventName.TaskAborted]: z.tuple([z.string()]),
+	[RooCodeEventName.TaskSpawned]: z.tuple([z.string(), z.string()]),
+	[RooCodeEventName.TaskCompleted]: z.tuple([z.string(), tokenUsageSchema]),
+	[RooCodeEventName.TaskTokenUsageUpdated]: z.tuple([z.string(), tokenUsageSchema]),
+})
+
+export type RooCodeEvents = z.infer<typeof rooCodeEventsSchema>
+
+/**
  * TypeDefinition
  */
 
@@ -801,6 +845,7 @@ export const typeDefinitions: TypeDefinition[] = [
 	{ schema: globalSettingsSchema, identifier: "GlobalSettings" },
 	{ schema: clineMessageSchema, identifier: "ClineMessage" },
 	{ schema: tokenUsageSchema, identifier: "TokenUsage" },
+	{ schema: rooCodeEventsSchema, identifier: "RooCodeEvents" },
 ]
 
 // Also export as default for ESM compatibility

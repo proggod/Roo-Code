@@ -30,7 +30,7 @@ export const CheckpointMenu = ({ ts, commitHash, currentHash, checkpoint }: Chec
 
 	const onCheckpointDiff = useCallback(() => {
 		vscode.postMessage({
-			type: "checkpointDiff",
+			type: "checkpointDiffWeb",
 			payload: { ts, previousCommitHash, commitHash, mode: "checkpoint" },
 		})
 	}, [ts, previousCommitHash, commitHash])

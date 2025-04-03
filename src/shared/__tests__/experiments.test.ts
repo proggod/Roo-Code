@@ -14,9 +14,10 @@ describe("experiments", () => {
 		it("returns false when experiment is not enabled", () => {
 			const experiments: Record<ExperimentId, boolean> = {
 				powerSteering: false,
-				experimentalDiffStrategy: false,
 				search_and_replace: false,
+				experimentalDiffStrategy: false,
 				insert_content: false,
+				apiLogging: false,
 			}
 			expect(Experiments.isEnabled(experiments, EXPERIMENT_IDS.POWER_STEERING)).toBe(false)
 		})
@@ -24,19 +25,21 @@ describe("experiments", () => {
 		it("returns true when experiment is enabled", () => {
 			const experiments: Record<ExperimentId, boolean> = {
 				powerSteering: true,
-				experimentalDiffStrategy: false,
 				search_and_replace: false,
+				experimentalDiffStrategy: false,
 				insert_content: false,
+				apiLogging: false,
 			}
 			expect(Experiments.isEnabled(experiments, EXPERIMENT_IDS.POWER_STEERING)).toBe(true)
 		})
 
 		it("returns false when experiment is not present", () => {
 			const experiments: Record<ExperimentId, boolean> = {
-				experimentalDiffStrategy: false,
 				search_and_replace: false,
+				experimentalDiffStrategy: false,
 				insert_content: false,
 				powerSteering: false,
+				apiLogging: false,
 			}
 			expect(Experiments.isEnabled(experiments, EXPERIMENT_IDS.POWER_STEERING)).toBe(false)
 		})

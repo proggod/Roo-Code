@@ -7,6 +7,7 @@ import { ApiHandlerOptions, ModelInfo, openAiModelInfoSaneDefaults } from "../..
 import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream } from "../transform/stream"
 import { BaseProvider } from "./base-provider"
+import { logApiRequest } from "../../utils/api-logger"
 
 const LMSTUDIO_DEFAULT_TEMPERATURE = 0
 
@@ -28,6 +29,11 @@ export class LmStudioHandler extends BaseProvider implements SingleCompletionHan
 			{ role: "system", content: systemPrompt },
 			...convertToOpenAiMessages(messages),
 		]
+
+		logApiRequest({
+			systemPrompt,
+			messages,
+		})
 
 		try {
 			// Create params object with optional draft model
