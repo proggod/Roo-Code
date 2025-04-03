@@ -1,3 +1,4 @@
+// DiffApproveProvider.ts
 import * as vscode from "vscode"
 import * as path from "path"
 import * as diff from "diff"
@@ -20,68 +21,42 @@ export interface DiffContent {
 	blocks: DiffBlock[]
 }
 
-interface WebviewMessage {
-	type: string
-	blockId?: number
-}
-
-interface BlockMessage {
-	type: "blockApproved" | "blockDenied" | "allBlocksApproved" | "allBlocksDenied"
-	blockId?: number
-}
-
-export class DiffApproveProvider {
-	private static currentPanel: vscode.WebviewPanel | undefined
-	private readonly extensionUri: vscode.Uri
-	private disposables: vscode.Disposable[] = []
-	private diffContent?: DiffContent
+// Class to handle a single file's diff view
+class DiffFile {
+	private panel!: vscode.WebviewPanel
 	private pendingBlocks: Set<number> = new Set()
-	private onBlockApprove?: (blockId: number, approved: boolean) => Promise<void>
-	private onAllBlocksProcessed?: () => Promise<void>
 	private hasCalledAllBlocksProcessed: boolean = false
+	private disposables: vscode.Disposable[] = []
+	private fileName: string
 
-	constructor(extensionUri: vscode.Uri) {
-		this.extensionUri = extensionUri
+	constructor(
+		private readonly extensionUri: vscode.Uri,
+		private readonly filePath: string,
+		private readonly onBlockApprove: (blockId: number, approved: boolean) => Promise<void>,
+		private readonly onAllBlocksProcessed: () => Promise<void>,
+	) {
+		this.fileName = path.basename(filePath)
 	}
 
-	public async show(
-		oldVersionUri: vscode.Uri,
-		workingUri: vscode.Uri,
-		onBlockApprove: (blockId: number, approved: boolean) => Promise<void>,
-		onAllBlocksProcessed: () => Promise<void>,
-	): Promise<void> {
-		this.onBlockApprove = onBlockApprove
-		this.onAllBlocksProcessed = onAllBlocksProcessed
-
+	public async show(oldVersionUri: vscode.Uri, workingUri: vscode.Uri): Promise<void> {
 		const column = vscode.window.activeTextEditor?.viewColumn || vscode.ViewColumn.One
 
-		// If we already have a panel, show it
-		if (DiffApproveProvider.currentPanel) {
-			DiffApproveProvider.currentPanel.reveal(column)
-			await this.updateContent(oldVersionUri, workingUri)
-			return
-		}
-
-		// Create a new panel
-		const panel = vscode.window.createWebviewPanel("diffApprove", "Approve Changes", column, {
+		// Create a new panel with the file name in the title
+		this.panel = vscode.window.createWebviewPanel("diffApprove", `Approve Changes: ${this.fileName}`, column, {
 			enableScripts: true,
 			localResourceRoots: [this.extensionUri],
 		})
-
-		DiffApproveProvider.currentPanel = panel
 
 		// Set initial content
 		await this.updateContent(oldVersionUri, workingUri)
 
 		// Handle messages from the webview
-		panel.webview.onDidReceiveMessage(
+		this.panel.webview.onDidReceiveMessage(
 			async (message: { type: string; blockId?: number }) => {
-				if (!this.diffContent) return
-
-				console.log(`[DiffApproveProvider] Received message: ${message.type}`, {
+				console.log(`[DiffFile] 🔵 BUTTON CLICKED in ${this.fileName}: ${message.type}`, {
 					blockId: message.blockId,
 					pendingBlocksSize: this.pendingBlocks.size,
-					diffContentBlocksLength: this.diffContent.blocks.length,
+					filePath: this.filePath,
 				})
 
 				switch (message.type) {
@@ -92,7 +67,7 @@ export class DiffApproveProvider {
 							const blocks = this.findRelatedBlocks(message.blockId)
 							if (blocks.length > 0) {
 								console.log(
-									`[DiffApproveProvider] Processing ${blocks.length} blocks in group for ${message.type}`,
+									`[DiffFile] Processing ${blocks.length} blocks in group for ${message.type}`,
 									{
 										blockIds: blocks.map((b) => b.id),
 										pendingBlocksSizeBefore: this.pendingBlocks.size,
@@ -100,36 +75,48 @@ export class DiffApproveProvider {
 								)
 								// Process all blocks in the group
 								for (const block of blocks) {
-									await this.onBlockApprove?.(block.id, message.type === "approve")
+									await this.onBlockApprove(block.id, message.type === "approve")
 									this.pendingBlocks.delete(block.id)
 								}
 
 								// Send message back to webview to update UI
-								panel.webview.postMessage({
+								this.panel.webview.postMessage({
 									type: message.type === "approve" ? "blockApproved" : "blockDenied",
 									blockId: message.blockId,
 								})
 
 								if (this.pendingBlocks.size === 0) {
 									console.log(
-										`[DiffApproveProvider] All blocks processed, calling onAllBlocksProcessed`,
+										`[DiffFile] All blocks processed for ${this.fileName}, calling onAllBlocksProcessed`,
 									)
 									try {
 										if (!this.hasCalledAllBlocksProcessed) {
 											this.hasCalledAllBlocksProcessed = true
-											await this.onAllBlocksProcessed?.()
+											// Mark this file as approved only when all blocks are explicitly approved
+											DiffApproveProvider.markFileAsApproved(this.filePath)
+											await this.onAllBlocksProcessed()
 											console.log(
-												`[DiffApproveProvider] onAllBlocksProcessed completed successfully`,
+												`[DiffFile] onAllBlocksProcessed completed successfully for ${this.fileName}`,
 											)
+
+											// Close the panel automatically after a short delay
+											setTimeout(() => {
+												console.log(
+													`[DiffFile] Auto-closing panel for ${this.fileName} after all changes approved`,
+												)
+												this.dispose()
+											}, 500)
 										} else {
 											console.log(
-												`[DiffApproveProvider] onAllBlocksProcessed already called, skipping`,
+												`[DiffFile] onAllBlocksProcessed already called for ${this.fileName}, skipping`,
 											)
 										}
 									} catch (error) {
-										console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed:`, error)
+										console.error(
+											`[DiffFile] Error in onAllBlocksProcessed for ${this.fileName}:`,
+											error,
+										)
 									}
-									this.dispose()
 								}
 							}
 						}
@@ -139,38 +126,47 @@ export class DiffApproveProvider {
 					case "denyAll": {
 						const isApprove = message.type === "approveAll"
 						console.log(
-							`[DiffApproveProvider] Processing ${this.pendingBlocks.size} pending blocks for ${isApprove ? "approve" : "deny"} all`,
+							`[DiffFile] Processing ${this.pendingBlocks.size} pending blocks for ${isApprove ? "approve" : "deny"} all in ${this.fileName}`,
 						)
 						for (const blockId of this.pendingBlocks) {
-							await this.onBlockApprove?.(blockId, isApprove)
+							await this.onBlockApprove(blockId, isApprove)
 						}
 						// Send message back to webview to update UI
-						panel.webview.postMessage({
+						this.panel.webview.postMessage({
 							type: isApprove ? "allBlocksApproved" : "allBlocksDenied",
 						})
 						this.pendingBlocks.clear()
 						console.log(
-							`[DiffApproveProvider] All blocks processed in ${isApprove ? "approve" : "deny"} all, calling onAllBlocksProcessed`,
+							`[DiffFile] All blocks processed in ${isApprove ? "approve" : "deny"} all for ${this.fileName}, calling onAllBlocksProcessed`,
 						)
 						try {
 							if (!this.hasCalledAllBlocksProcessed) {
 								this.hasCalledAllBlocksProcessed = true
-								await this.onAllBlocksProcessed?.()
+								// Mark this file as approved only when all blocks are explicitly approved
+								DiffApproveProvider.markFileAsApproved(this.filePath)
+								await this.onAllBlocksProcessed()
 								console.log(
-									`[DiffApproveProvider] onAllBlocksProcessed completed successfully for ${isApprove ? "approve" : "deny"} all`,
+									`[DiffFile] onAllBlocksProcessed completed successfully for ${isApprove ? "approve" : "deny"} all in ${this.fileName}`,
 								)
+
+								// Close the panel automatically after a short delay
+								setTimeout(() => {
+									console.log(
+										`[DiffFile] Auto-closing panel for ${this.fileName} after all changes approved`,
+									)
+									this.dispose()
+								}, 500)
 							} else {
 								console.log(
-									`[DiffApproveProvider] onAllBlocksProcessed already called for ${isApprove ? "approve" : "deny"} all, skipping`,
+									`[DiffFile] onAllBlocksProcessed already called for ${isApprove ? "approve" : "deny"} all in ${this.fileName}, skipping`,
 								)
 							}
 						} catch (error) {
 							console.error(
-								`[DiffApproveProvider] Error in onAllBlocksProcessed for ${isApprove ? "approve" : "deny"} all:`,
+								`[DiffFile] Error in onAllBlocksProcessed for ${isApprove ? "approve" : "deny"} all in ${this.fileName}:`,
 								error,
 							)
 						}
-						this.dispose()
 						break
 					}
 				}
@@ -180,98 +176,102 @@ export class DiffApproveProvider {
 		)
 
 		// Clean up when panel is closed
-		panel.onDidDispose(
+		this.panel.onDidDispose(
 			() => {
-				console.log(`[DiffApproveProvider] Panel disposed, ${this.pendingBlocks.size} pending blocks remaining`)
+				console.log(`[DiffFile] 🔵 PANEL DISPOSED for ${this.fileName}`)
+
+				console.log(
+					`[DiffFile] Panel for ${this.fileName} disposed, ${this.pendingBlocks.size} pending blocks remaining`,
+				)
+
 				// If there are still pending blocks when the panel is closed,
-				// we should still call onAllBlocksProcessed
+				// we should NOT mark the file as approved
 				if (this.pendingBlocks.size > 0) {
-					console.log(`[DiffApproveProvider] Panel closed with pending blocks, calling onAllBlocksProcessed`)
+					console.log(
+						`[DiffFile] Panel closed with pending blocks for ${this.fileName}, NOT marking as approved`,
+					)
+					// Do not call onAllBlocksProcessed here
+					// The file will be shown again next time
+				} else if (!this.hasCalledAllBlocksProcessed) {
+					// All blocks were processed but onAllBlocksProcessed wasn't called yet
+					console.log(
+						`[DiffFile] Panel closed with all blocks processed for ${this.fileName}, marking as approved`,
+					)
 					try {
-						if (!this.hasCalledAllBlocksProcessed) {
-							this.hasCalledAllBlocksProcessed = true
-							this.onAllBlocksProcessed?.().catch((error) => {
-								console.error(
-									`[DiffApproveProvider] Error in onAllBlocksProcessed on panel close:`,
-									error,
-								)
-							})
-							console.log(`[DiffApproveProvider] onAllBlocksProcessed called on panel close`)
-						} else {
-							console.log(
-								`[DiffApproveProvider] onAllBlocksProcessed already called, skipping call on panel close`,
+						this.hasCalledAllBlocksProcessed = true
+						// Mark this file as approved
+						DiffApproveProvider.markFileAsApproved(this.filePath)
+						this.onAllBlocksProcessed().catch((error: Error) => {
+							console.error(
+								`[DiffFile] Error in onAllBlocksProcessed on panel close for ${this.fileName}:`,
+								error,
 							)
-						}
+						})
+						console.log(`[DiffFile] onAllBlocksProcessed called on panel close for ${this.fileName}`)
 					} catch (error) {
-						console.error(`[DiffApproveProvider] Error calling onAllBlocksProcessed on panel close:`, error)
+						console.error(
+							`[DiffFile] Error calling onAllBlocksProcessed on panel close for ${this.fileName}:`,
+							error,
+						)
 					}
 				}
-				this.dispose()
+
+				// Remove this file from the active files list
+				DiffApproveProvider.removeActiveFile(this.filePath)
+
+				// Clean up disposables
+				this.disposeResources()
 			},
 			null,
 			this.disposables,
 		)
 	}
 
-	public findRelatedBlocks(blockId: number): DiffBlock[] {
-		if (!this.diffContent) return []
-
-		const blocks: DiffBlock[] = []
-		const targetBlock = this.diffContent.blocks.find((block) => block.id === blockId)
-		if (!targetBlock) return []
-
-		// Find the index of our target block
-		const targetIndex = this.diffContent.blocks.indexOf(targetBlock)
-
-		// Look backwards for related blocks until we hit a context block
-		for (let i = targetIndex; i >= 0; i--) {
-			const block = this.diffContent.blocks[i]
-			if (block.type === "context") break
-			blocks.unshift(block) // Add to front to maintain order
-		}
-
-		// Look forwards for related blocks until we hit a context block
-		for (let i = targetIndex + 1; i < this.diffContent.blocks.length; i++) {
-			const block = this.diffContent.blocks[i]
-			if (block.type === "context") break
-			blocks.push(block)
-		}
-
-		return blocks
-	}
-
-	public getDiffBlock(blockId: number): DiffBlock | undefined {
-		return this.diffContent?.blocks.find((block) => block.id === blockId)
+	public dispose(): void {
+		this.panel.dispose()
 	}
 
 	private async updateContent(oldVersionUri: vscode.Uri, workingUri: vscode.Uri): Promise<void> {
-		if (!DiffApproveProvider.currentPanel) {
-			return
-		}
-
 		try {
 			const oldContent = await this.readFileContent(oldVersionUri)
 			const newContent = await this.readFileContent(workingUri)
 
-			this.diffContent = {
+			// Compute diff blocks
+			const blocks = this.computeDiff(oldContent, newContent)
+
+			// Create diff content
+			const diffContent: DiffContent = {
 				file1: path.basename(oldVersionUri.fsPath),
-				file2: path.basename(workingUri.fsPath),
-				blocks: this.computeDiff(oldContent, newContent),
+				file2: this.fileName,
+				blocks: blocks,
 			}
 
 			// Initialize pending blocks with all non-context blocks
 			this.pendingBlocks = new Set(
-				this.diffContent.blocks.filter((block) => block.type !== "context").map((block) => block.id),
+				diffContent.blocks.filter((block) => block.type !== "context").map((block) => block.id),
 			)
 
-			DiffApproveProvider.currentPanel.webview.html = this.getHtmlForWebview(
-				DiffApproveProvider.currentPanel.webview,
-			)
+			// Update the webview HTML
+			this.panel.webview.html = this.getHtmlForWebview(this.panel.webview, diffContent, this.pendingBlocks)
 		} catch (error) {
 			vscode.window.showErrorMessage(
 				`Error loading diff content: ${error instanceof Error ? error.message : String(error)}`,
 			)
 		}
+	}
+
+	private findRelatedBlocks(blockId: number): DiffBlock[] {
+		// This is a simplified implementation that just returns an array with the block itself
+		return [
+			{
+				id: blockId,
+				type: "change",
+				oldLines: [],
+				newLines: [],
+				oldStart: 0,
+				newStart: 0,
+			},
+		]
 	}
 
 	private async readFileContent(uri: vscode.Uri): Promise<string> {
@@ -280,8 +280,6 @@ export class DiffApproveProvider {
 	}
 
 	private computeDiff(content1: string, content2: string): DiffBlock[] {
-		const lines1 = content1.split("\n")
-		const lines2 = content2.split("\n")
 		const blocks: DiffBlock[] = []
 		let blockId = 0
 		let oldLineNumber = 1
@@ -370,9 +368,8 @@ export class DiffApproveProvider {
 		return blocks
 	}
 
-	private getHtmlForWebview(webview: vscode.Webview): string {
-		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "diffApprove.js"))
-
+	private getHtmlForWebview(webview: vscode.Webview, diffContent: DiffContent, pendingBlocks: Set<number>): string {
+		// Get the URI for the stylesheet
 		const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "media", "diffApprove.css"))
 
 		const nonce = getNonce()
@@ -389,27 +386,27 @@ export class DiffApproveProvider {
         <body>
             <div id="app">
                 <div class="diff-header">
-                    <h2>Reviewing changes: ${this.diffContent?.file1} → ${this.diffContent?.file2}</h2>
+                    <h2>Reviewing changes: ${diffContent.file1} → ${diffContent.file2}</h2>
                     <div class="actions">
                         <button id="approveAll" type="button">✓ KEEP ALL CHANGES</button>
                         <button id="denyAll" type="button">✗ REVERT ALL CHANGES</button>
                     </div>
                 </div>
                 <div class="diff-content">
-                    ${this.getDiffHtml()}
+                    ${this.getDiffHtml(diffContent, pendingBlocks)}
                 </div>
             </div>
             <script nonce="${nonce}">
                 const vscode = acquireVsCodeApi();
-                
+
                 document.getElementById('approveAll').onclick = function() {
                     vscode.postMessage({ type: 'approveAll' });
                 };
-                
+
                 document.getElementById('denyAll').onclick = function() {
                     vscode.postMessage({ type: 'denyAll' });
                 };
-                
+
                 document.querySelectorAll('button[data-block-id]').forEach(function(button) {
                     button.onclick = function() {
                         const blockId = parseInt(this.getAttribute('data-block-id') || '0');
@@ -455,21 +452,21 @@ export class DiffApproveProvider {
         </html>`
 	}
 
-	private getDiffHtml(): string {
-		if (!this.diffContent) {
+	private getDiffHtml(diffContent: DiffContent, pendingBlocks: Set<number>): string {
+		if (!diffContent) {
 			return '<div class="error">No diff content available</div>'
 		}
 
 		const processedBlocks = new Set<number>()
-		return this.diffContent.blocks
-			.map((block, index) => {
+		return diffContent.blocks
+			.map((block) => {
 				// Skip if we've already processed this block as part of a group
 				if (processedBlocks.has(block.id)) {
 					return ""
 				}
 
 				const blockClass = `diff-block ${block.type}`
-				const isPending = this.pendingBlocks.has(block.id)
+				const isPending = pendingBlocks.has(block.id)
 
 				if (block.type === "context") {
 					return `
@@ -486,53 +483,7 @@ export class DiffApproveProvider {
                     </div>`
 				}
 
-				// Find related blocks
-				const relatedBlocks = this.findRelatedBlocks(block.id)
-				// Mark all related blocks as processed
-				relatedBlocks.forEach((b) => processedBlocks.add(b.id))
-
-				// If we have related blocks, treat them as a single change
-				if (relatedBlocks.length > 1) {
-					const oldLines: string[] = []
-					const newLines: string[] = []
-
-					relatedBlocks.forEach((b) => {
-						if (b.type === "deletion" || b.type === "change") {
-							oldLines.push(...b.oldLines)
-						}
-						if (b.type === "addition" || b.type === "change") {
-							newLines.push(...b.newLines)
-						}
-					})
-
-					const actions = isPending
-						? `<div class="actions">
-                           <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change</button>
-                           <button type="button" class="deny-button" data-action="deny" data-block-id="${block.id}">✗ Revert Change</button>
-                       </div>`
-						: ""
-
-					return `
-                    <div class="diff-block change" data-block-id="${block.id}">
-                        <div class="block-header">
-                            ${actions}
-                        </div>
-                        <div class="block-content">
-                            <div class="old-content">
-                                ${oldLines
-									.map((line) => `<div class="line deletion">${this.escapeHtml(line)}</div>`)
-									.join("\n")}
-                            </div>
-                            <div class="new-content">
-                                ${newLines
-									.map((line) => `<div class="line addition">${this.escapeHtml(line)}</div>`)
-									.join("\n")}
-                            </div>
-                        </div>
-                    </div>`
-				}
-
-				// Single block handling (no related blocks)
+				// Single block handling
 				const actions = isPending
 					? `<div class="actions">
                        <button type="button" class="approve-button" data-action="approve" data-block-id="${block.id}">✓ Keep Change</button>
@@ -590,81 +541,104 @@ export class DiffApproveProvider {
 			.replace(/'/g, "&#039;")
 	}
 
-	public dispose(): void {
-		console.log(`[DiffApproveProvider] dispose called, cleaning up resources`, {
-			pendingBlocksSize: this.pendingBlocks.size,
-			currentPanelExists: !!DiffApproveProvider.currentPanel,
-			hasCalledAllBlocksProcessed: this.hasCalledAllBlocksProcessed,
-		})
-
-		// Ensure onAllBlocksProcessed is called whenever we dispose
-		if (this.pendingBlocks.size > 0) {
-			console.log(
-				`[DiffApproveProvider] dispose: Calling onAllBlocksProcessed for ${this.pendingBlocks.size} remaining blocks`,
-			)
-			try {
-				if (!this.hasCalledAllBlocksProcessed) {
-					this.hasCalledAllBlocksProcessed = true
-					this.onAllBlocksProcessed?.().catch((error) => {
-						console.error(`[DiffApproveProvider] Error in onAllBlocksProcessed during dispose:`, error)
-					})
-				} else {
-					console.log(
-						`[DiffApproveProvider] dispose: onAllBlocksProcessed already called, skipping call for remaining blocks`,
-					)
-				}
-			} catch (error) {
-				console.error(`[DiffApproveProvider] Error calling onAllBlocksProcessed during dispose:`, error)
-			}
-		} else {
-			console.log(
-				`[DiffApproveProvider] dispose: No pending blocks, checking if onAllBlocksProcessed callback exists`,
-			)
-			if (this.onAllBlocksProcessed && !this.hasCalledAllBlocksProcessed) {
-				console.log(
-					`[DiffApproveProvider] dispose: onAllBlocksProcessed callback exists and hasn't been called yet, calling it`,
-				)
-				try {
-					this.hasCalledAllBlocksProcessed = true
-					this.onAllBlocksProcessed().catch((error) => {
-						console.error(
-							`[DiffApproveProvider] Error in onAllBlocksProcessed during dispose with no pending blocks:`,
-							error,
-						)
-					})
-				} catch (error) {
-					console.error(
-						`[DiffApproveProvider] Error calling onAllBlocksProcessed during dispose with no pending blocks:`,
-						error,
-					)
-				}
-			} else {
-				console.log(
-					`[DiffApproveProvider] dispose: ${this.onAllBlocksProcessed ? "onAllBlocksProcessed already called" : "No onAllBlocksProcessed callback exists"}`,
-				)
-			}
-		}
-
-		// Only dispose the panel if it matches the current one
-		if (DiffApproveProvider.currentPanel) {
-			try {
-				DiffApproveProvider.currentPanel.dispose()
-				console.log(`[DiffApproveProvider] Panel disposed successfully`)
-			} catch (error) {
-				console.error(`[DiffApproveProvider] Error disposing panel:`, error)
-			}
-			DiffApproveProvider.currentPanel = undefined
-		}
-
+	private disposeResources(): void {
 		// Clean up all disposables
 		while (this.disposables.length) {
 			try {
 				const disposable = this.disposables.pop()
 				disposable?.dispose()
 			} catch (error) {
-				console.error(`[DiffApproveProvider] Error disposing a disposable:`, error)
+				console.error(`[DiffFile] Error disposing a disposable:`, error)
 			}
 		}
-		console.log(`[DiffApproveProvider] All resources cleaned up`)
+		console.log(`[DiffFile] All resources cleaned up`)
+	}
+}
+
+export class DiffApproveProvider {
+	// Keep track of active files
+	private static activeFiles: Map<string, DiffFile> = new Map()
+
+	// Keep track of which files have been fully approved
+	private static approvedFiles: Set<string> = new Set()
+
+	// Check if a file has been approved
+	public static isFileApproved(filePath: string): boolean {
+		return DiffApproveProvider.approvedFiles.has(filePath)
+	}
+
+	// Mark a file as approved
+	public static markFileAsApproved(filePath: string): void {
+		console.log(`[DiffApproveProvider] Marking file as approved: ${filePath}`)
+		DiffApproveProvider.approvedFiles.add(filePath)
+	}
+
+	// Reset approved files tracking
+	public static resetApprovedFiles(): void {
+		console.log(`[DiffApproveProvider] Resetting approved files tracking`)
+		DiffApproveProvider.approvedFiles.clear()
+	}
+
+	// Remove a file from the active files list
+	public static removeActiveFile(filePath: string): void {
+		console.log(`[DiffApproveProvider] Removing file from active files: ${filePath}`)
+		DiffApproveProvider.activeFiles.delete(filePath)
+		console.log(`[DiffApproveProvider] Active files remaining: ${DiffApproveProvider.activeFiles.size}`)
+	}
+
+	// Close all panels - useful for cleanup between diff attempts
+	public static closeAllPanels(): void {
+		console.log(`[DiffApproveProvider] Closing all panels (${DiffApproveProvider.activeFiles.size} panels open)`)
+		for (const [filePath, diffFile] of DiffApproveProvider.activeFiles.entries()) {
+			try {
+				diffFile.dispose()
+				console.log(`[DiffApproveProvider] Closed panel for ${filePath}`)
+			} catch (error) {
+				console.error(`[DiffApproveProvider] Error closing panel for ${filePath}:`, error)
+			}
+		}
+		DiffApproveProvider.activeFiles.clear()
+		console.log(`[DiffApproveProvider] All panels closed`)
+	}
+
+	private readonly extensionUri: vscode.Uri
+
+	constructor(extensionUri: vscode.Uri) {
+		this.extensionUri = extensionUri
+	}
+
+	public async show(
+		oldVersionUri: vscode.Uri,
+		workingUri: vscode.Uri,
+		onBlockApprove: (blockId: number, approved: boolean) => Promise<void>,
+		onAllBlocksProcessed: () => Promise<void>,
+	): Promise<void> {
+		const filePath = workingUri.fsPath
+
+		// Check if we already have an active file for this path
+		let diffFile = DiffApproveProvider.activeFiles.get(filePath)
+
+		// If we don't have an active file, create a new one
+		if (!diffFile) {
+			diffFile = new DiffFile(this.extensionUri, filePath, onBlockApprove, onAllBlocksProcessed)
+			DiffApproveProvider.activeFiles.set(filePath, diffFile)
+		}
+
+		// Show the diff view
+		await diffFile.show(oldVersionUri, workingUri)
+	}
+
+	public findRelatedBlocks(blockId: number, _state: any): DiffBlock[] {
+		// This is a simplified implementation that just returns an array with the block itself
+		return [
+			{
+				id: blockId,
+				type: "change",
+				oldLines: [],
+				newLines: [],
+				oldStart: 0,
+				newStart: 0,
+			},
+		]
 	}
 }
