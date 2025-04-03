@@ -2569,7 +2569,7 @@ export class Cline extends EventEmitter<ClineEvents> {
 			activeViews = pendingChanges.length
 
 			if (pendingChanges.length === 0) {
-				vscode.window.showInformationMessage("All changes have been approved!")
+				//				vscode.window.showInformationMessage("All changes have been approved!")
 				return
 			}
 
@@ -2605,9 +2605,9 @@ export class Cline extends EventEmitter<ClineEvents> {
 						workingUri,
 						async (blockId: number, approved: boolean) => {
 							if (approved) {
-								vscode.window.showInformationMessage(
-									`Block ${blockId} in ${change.paths.relative} approved`,
-								)
+								//						vscode.window.showInformationMessage(
+								//								`Block ${blockId} in ${change.paths.relative} approved`,
+								//								)
 							} else {
 								// For denied blocks, revert that block in the working file
 								const blocks = provider.findRelatedBlocks(blockId, {
@@ -2649,7 +2649,7 @@ export class Cline extends EventEmitter<ClineEvents> {
 										Buffer.from(workingLines.join("\n")),
 									)
 								}
-								vscode.window.showInformationMessage(`Changes in ${change.paths.relative} reverted`)
+								//								vscode.window.showInformationMessage(`Changes in ${change.paths.relative} reverted`)
 							}
 						},
 						async () => {
