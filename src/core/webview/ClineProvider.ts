@@ -28,7 +28,7 @@ import { supportPrompt } from "../../shared/support-prompt"
 import { GlobalFileNames } from "../../shared/globalFileNames"
 import { HistoryItem } from "../../shared/HistoryItem"
 import { ExtensionMessage } from "../../shared/ExtensionMessage"
-import { Mode, PromptComponent, defaultModeSlug, getModeBySlug, getGroupName } from "../../shared/modes"
+import { Mode, ModeConfig, PromptComponent, defaultModeSlug, getModeBySlug, getGroupName } from "../../shared/modes"
 import { EXPERIMENT_IDS, experiments as Experiments, experimentDefault, ExperimentId } from "../../shared/experiments"
 import { formatLanguage } from "../../shared/language"
 import { Terminal, TERMINAL_SHELL_INTEGRATION_TIMEOUT } from "../../integrations/terminal/Terminal"
@@ -102,11 +102,6 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 		this.contextProxy = new ContextProxy(context)
 		ClineProvider.activeInstances.add(this)
 
-		// Check experiments and set apiLoggingEnabled
-		this.getState().then((state) => {
-			ClineProvider.apiLoggingEnabled = state.experiments?.[EXPERIMENT_IDS.API_LOGGING] ?? false
-		})
-
 		// Register this provider with the telemetry service to enable it to add
 		// properties like mode and provider.
 		telemetryService.setProvider(this)
@@ -115,8 +110,14 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 
 		this.providerSettingsManager = new ProviderSettingsManager(this.context)
 
+		// Initialize customModesManager before calling getState
 		this.customModesManager = new CustomModesManager(this.context, async () => {
 			await this.postStateToWebview()
+		})
+
+		// Check experiments and set apiLoggingEnabled
+		this.getState().then((state) => {
+			ClineProvider.apiLoggingEnabled = state.experiments?.[EXPERIMENT_IDS.API_LOGGING] ?? false
 		})
 
 		// Initialize MCP Hub through the singleton manager
@@ -1275,7 +1276,15 @@ export class ClineProvider extends EventEmitter<ClineProviderEvents> implements 
 	async getState() {
 		const stateValues = this.contextProxy.getValues()
 
-		const customModes = await this.customModesManager.getCustomModes()
+		// Safely handle the case where customModesManager might not be initialized yet
+		let customModes: ModeConfig[] = []
+		if (this.customModesManager) {
+			try {
+				customModes = await this.customModesManager.getCustomModes()
+			} catch (error) {
+				this.outputChannel.appendLine(`Error getting custom modes: ${error}`)
+			}
+		}
 
 		// Determine apiProvider with the same logic as before.
 		const apiProvider: ApiProvider = stateValues.apiProvider ? stateValues.apiProvider : "anthropic"
